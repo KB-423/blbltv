@@ -1,0 +1,14 @@
+targets:
+  $default:
+    builders:
+      # 处理生成 .g.dart 的构建器（如 go_router_builder、json_serializable 等）
+      source_gen:combining_builder:
+        options:
+          build_extensions:
+            "{{dir}}/{{file}}.dart": "{{dir}}/generated/{{file}}.g.dart"
+
+      # 处理 freezed 生成的 .freezed.dart 文件
+      freezed:freezed:
+        options:
+          build_extensions:
+            "{{dir}}/{{file}}.dart": "{{dir}}/generated/{{file}}.freezed.dart"
