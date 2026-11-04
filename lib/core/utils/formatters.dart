@@ -32,5 +32,16 @@ class Formatters {
     }
     return '$minStr:$secStr';
   }
+
+  /// 格式化历史播放进度
+  static String formatProgress(int progress, int duration) {
+    if (progress == -1) return '已看完';
+    if (progress <= 0) return '未播放';
+    if (duration > 0) {
+      final percent = ((progress / duration) * 100).clamp(0, 100).toInt();
+      return '看到 $percent%';
+    }
+    return '看到 ${formatDuration(progress)}';
+  }
 }
 

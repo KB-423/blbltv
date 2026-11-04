@@ -32,8 +32,17 @@ class ApiConstants {
   static const String qrcodePoll =
       '$passportBaseUrl/x/passport-login/web/qrcode/poll';
 
+  // 用户与个人资产 (历史记录、收藏夹、追番)
+  static const String historyList = '/x/web-interface/history/cursor';
+  static const String userFavFolders = '/x/v3/fav/folder/created/list-all';
+  static const String userFavResources = '/x/v3/fav/resource/list';
+  static const String bangumiFollow = '/x/space/bangumi/follow/list';
+  static const String navStat = '/x/web-interface/nav/stat';
+
   // 搜索
   static const String searchAll = '/x/web-interface/search/all/v2';
   static const String searchSuggest = 'https://s.search.bilibili.com/main/suggest';
+  static const String searchByType = '/x/web-interface/wbi/search/type';
+  static const String hotSearchList = 'https://s.search.bilibili.com/main/hotword';
 }
 

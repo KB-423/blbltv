@@ -12,7 +12,6 @@ part of '../video_item_model.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
-
 /// @nodoc
 mixin _$VideoOwner {
 
@@ -23,8 +22,6 @@ mixin _$VideoOwner {
 @pragma('vm:prefer-inline')
 $VideoOwnerCopyWith<VideoOwner> get copyWith => _$VideoOwnerCopyWithImpl<VideoOwner>(this as VideoOwner, _$identity);
 
-  /// Serializes this VideoOwner to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -33,7 +30,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoOwner&&(identical(other.mid, _this.mid) || other.mid == _this.mid)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.face, _this.face) || other.face == _this.face));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
   final _this = this as VideoOwner;
@@ -214,11 +211,11 @@ return $default(_that.mid,_that.name,_that.face);case _:
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _VideoOwner implements VideoOwner {
   const _VideoOwner({this.mid = 0, this.name = '', this.face = ''});
-  factory _VideoOwner.fromJson(Map<String, dynamic> json) => _$VideoOwnerFromJson(json);
+  
 
 @override@JsonKey() final  int mid;
 @override@JsonKey() final  String name;
@@ -230,17 +227,14 @@ class _VideoOwner implements VideoOwner {
 @pragma('vm:prefer-inline')
 _$VideoOwnerCopyWith<_VideoOwner> get copyWith => __$VideoOwnerCopyWithImpl<_VideoOwner>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$VideoOwnerToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
     return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoOwner&&(identical(other.mid, mid) || other.mid == mid)&&(identical(other.name, name) || other.name == name)&&(identical(other.face, face) || other.face == face));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
     return Object.hash(runtimeType,mid,name,face);
@@ -288,7 +282,6 @@ as String,
 
 }
 
-
 /// @nodoc
 mixin _$VideoStat {
 
@@ -299,8 +292,6 @@ mixin _$VideoStat {
 @pragma('vm:prefer-inline')
 $VideoStatCopyWith<VideoStat> get copyWith => _$VideoStatCopyWithImpl<VideoStat>(this as VideoStat, _$identity);
 
-  /// Serializes this VideoStat to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -309,7 +300,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoStat&&(identical(other.view, _this.view) || other.view == _this.view)&&(identical(other.danmaku, _this.danmaku) || other.danmaku == _this.danmaku)&&(identical(other.reply, _this.reply) || other.reply == _this.reply)&&(identical(other.favorite, _this.favorite) || other.favorite == _this.favorite)&&(identical(other.coin, _this.coin) || other.coin == _this.coin)&&(identical(other.share, _this.share) || other.share == _this.share)&&(identical(other.like, _this.like) || other.like == _this.like));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
   final _this = this as VideoStat;
@@ -494,11 +485,11 @@ return $default(_that.view,_that.danmaku,_that.reply,_that.favorite,_that.coin,_
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _VideoStat implements VideoStat {
   const _VideoStat({this.view = 0, this.danmaku = 0, this.reply = 0, this.favorite = 0, this.coin = 0, this.share = 0, this.like = 0});
-  factory _VideoStat.fromJson(Map<String, dynamic> json) => _$VideoStatFromJson(json);
+  
 
 @override@JsonKey() final  int view;
 @override@JsonKey() final  int danmaku;
@@ -514,17 +505,14 @@ class _VideoStat implements VideoStat {
 @pragma('vm:prefer-inline')
 _$VideoStatCopyWith<_VideoStat> get copyWith => __$VideoStatCopyWithImpl<_VideoStat>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$VideoStatToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
     return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoStat&&(identical(other.view, view) || other.view == view)&&(identical(other.danmaku, danmaku) || other.danmaku == danmaku)&&(identical(other.reply, reply) || other.reply == reply)&&(identical(other.favorite, favorite) || other.favorite == favorite)&&(identical(other.coin, coin) || other.coin == coin)&&(identical(other.share, share) || other.share == share)&&(identical(other.like, like) || other.like == like));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
     return Object.hash(runtimeType,view,danmaku,reply,favorite,coin,share,like);
@@ -576,19 +564,16 @@ as int,
 
 }
 
-
 /// @nodoc
 mixin _$VideoItemModel {
 
- int get id; String get bvid; int get cid; String get title; String get pic; int get duration; int get pubdate; String get uri; VideoOwner? get owner; VideoStat? get stat;@JsonKey(name: 'rcmd_reason') String? get rcmdReason;
+ int get id; String get bvid; int get cid; String get title; String get pic; int get duration; int get pubdate; String get uri; VideoOwner? get owner; VideoStat? get stat; String? get rcmdReason;
 /// Create a copy of VideoItemModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $VideoItemModelCopyWith<VideoItemModel> get copyWith => _$VideoItemModelCopyWithImpl<VideoItemModel>(this as VideoItemModel, _$identity);
 
-  /// Serializes this VideoItemModel to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
@@ -597,7 +582,7 @@ bool operator ==(Object other) {
   return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoItemModel&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.bvid, _this.bvid) || other.bvid == _this.bvid)&&(identical(other.cid, _this.cid) || other.cid == _this.cid)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.pic, _this.pic) || other.pic == _this.pic)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.pubdate, _this.pubdate) || other.pubdate == _this.pubdate)&&(identical(other.uri, _this.uri) || other.uri == _this.uri)&&(identical(other.owner, _this.owner) || other.owner == _this.owner)&&(identical(other.stat, _this.stat) || other.stat == _this.stat)&&(identical(other.rcmdReason, _this.rcmdReason) || other.rcmdReason == _this.rcmdReason));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
   final _this = this as VideoItemModel;
@@ -618,7 +603,7 @@ abstract mixin class $VideoItemModelCopyWith<$Res>  {
   factory $VideoItemModelCopyWith(VideoItemModel value, $Res Function(VideoItemModel) _then) = _$VideoItemModelCopyWithImpl;
 @useResult
 $Res call({
- int id, String bvid, int cid, String title, String pic, int duration, int pubdate, String uri, VideoOwner? owner, VideoStat? stat,@JsonKey(name: 'rcmd_reason') String? rcmdReason
+ int id, String bvid, int cid, String title, String pic, int duration, int pubdate, String uri, VideoOwner? owner, VideoStat? stat, String? rcmdReason
 });
 
 
@@ -757,7 +742,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat, @JsonKey(name: 'rcmd_reason')  String? rcmdReason)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat,  String? rcmdReason)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoItemModel() when $default != null:
 return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.duration,_that.pubdate,_that.uri,_that.owner,_that.stat,_that.rcmdReason);case _:
@@ -778,7 +763,7 @@ return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.durati
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat, @JsonKey(name: 'rcmd_reason')  String? rcmdReason)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat,  String? rcmdReason)  $default,) {final _that = this;
 switch (_that) {
 case _VideoItemModel():
 return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.duration,_that.pubdate,_that.uri,_that.owner,_that.stat,_that.rcmdReason);case _:
@@ -798,7 +783,7 @@ return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.durati
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat, @JsonKey(name: 'rcmd_reason')  String? rcmdReason)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int id,  String bvid,  int cid,  String title,  String pic,  int duration,  int pubdate,  String uri,  VideoOwner? owner,  VideoStat? stat,  String? rcmdReason)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoItemModel() when $default != null:
 return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.duration,_that.pubdate,_that.uri,_that.owner,_that.stat,_that.rcmdReason);case _:
@@ -810,11 +795,11 @@ return $default(_that.id,_that.bvid,_that.cid,_that.title,_that.pic,_that.durati
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _VideoItemModel implements VideoItemModel {
-  const _VideoItemModel({this.id = 0, this.bvid = '', this.cid = 0, this.title = '', this.pic = '', this.duration = 0, this.pubdate = 0, this.uri = '', this.owner, this.stat, @JsonKey(name: 'rcmd_reason') this.rcmdReason});
-  factory _VideoItemModel.fromJson(Map<String, dynamic> json) => _$VideoItemModelFromJson(json);
+  const _VideoItemModel({this.id = 0, this.bvid = '', this.cid = 0, this.title = '', this.pic = '', this.duration = 0, this.pubdate = 0, this.uri = '', this.owner, this.stat, this.rcmdReason});
+  
 
 @override@JsonKey() final  int id;
 @override@JsonKey() final  String bvid;
@@ -826,7 +811,7 @@ class _VideoItemModel implements VideoItemModel {
 @override@JsonKey() final  String uri;
 @override final  VideoOwner? owner;
 @override final  VideoStat? stat;
-@override@JsonKey(name: 'rcmd_reason') final  String? rcmdReason;
+@override final  String? rcmdReason;
 
 /// Create a copy of VideoItemModel
 /// with the given fields replaced by the non-null parameter values.
@@ -834,17 +819,14 @@ class _VideoItemModel implements VideoItemModel {
 @pragma('vm:prefer-inline')
 _$VideoItemModelCopyWith<_VideoItemModel> get copyWith => __$VideoItemModelCopyWithImpl<_VideoItemModel>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$VideoItemModelToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
     return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoItemModel&&(identical(other.id, id) || other.id == id)&&(identical(other.bvid, bvid) || other.bvid == bvid)&&(identical(other.cid, cid) || other.cid == cid)&&(identical(other.title, title) || other.title == title)&&(identical(other.pic, pic) || other.pic == pic)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.pubdate, pubdate) || other.pubdate == pubdate)&&(identical(other.uri, uri) || other.uri == uri)&&(identical(other.owner, owner) || other.owner == owner)&&(identical(other.stat, stat) || other.stat == stat)&&(identical(other.rcmdReason, rcmdReason) || other.rcmdReason == rcmdReason));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
     return Object.hash(runtimeType,id,bvid,cid,title,pic,duration,pubdate,uri,owner,stat,rcmdReason);
@@ -863,7 +845,7 @@ abstract mixin class _$VideoItemModelCopyWith<$Res> implements $VideoItemModelCo
   factory _$VideoItemModelCopyWith(_VideoItemModel value, $Res Function(_VideoItemModel) _then) = __$VideoItemModelCopyWithImpl;
 @override @useResult
 $Res call({
- int id, String bvid, int cid, String title, String pic, int duration, int pubdate, String uri, VideoOwner? owner, VideoStat? stat,@JsonKey(name: 'rcmd_reason') String? rcmdReason
+ int id, String bvid, int cid, String title, String pic, int duration, int pubdate, String uri, VideoOwner? owner, VideoStat? stat, String? rcmdReason
 });
 
 

@@ -18,6 +18,7 @@
 | **持久化** | `shared_preferences: ^2.5.6` | 轻量化本地偏好与会话存储，通过 Riverpod 统一注入。 |
 | **代码生成** | `build_runner: ^2.17.1` | 自动生成 `.freezed.dart` 与 `.g.dart`。 |
 | **TV 交互** | `dpad: ^3.1.1` | **统一且必须使用 `dpad` 库** 处理 TV 遥控器与焦点，**严禁自行手写 tvfocus**。 |
+| **数据源与真实性** | 真实 API，**严格零 Mock** | **生产代码严禁使用或写入任何 Mock 数据 / 假数据 / 兜底假链接**。网络或接口异常一律向上抛出并走 UI 错误重试。 |
 
 ---
 
@@ -136,6 +137,10 @@ third/lib/ (参考源)                 lib/ (现代 TV 架构)
    - `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ...`
 3. **免密码 TV 扫码登录**：
    TV 场景坚决摒弃账号密码输入框。使用 `/x/passport-login/web/qrcode/generate` 并在大屏渲染高清二维码，后台轮询 `/x/passport-login/web/qrcode/poll`，成功后提取 Cookie 存入 `cookie_jar`。
+4. **严格零 Mock 原则 (Zero Mock Policy)**：
+   - **生产代码零 Mock**：`lib/` 源码中严禁编写或保留任何硬编码的假数据、伪造 BVID/CID、兜底写死的视频流链接或本地模拟列表。
+   - **真实错误传播**：网络异常、接口限流、风控或未登录时，必须将真实错误状态或异常向上抛出并交由 Riverpod 状态层管理，由 UI 层展示标准的 `TvErrorView` 错误提示并提供遥控器重试按钮，严禁静默降级为假数据。
+   - **测试边界控制**：仅在测试目录（`test/`）下允许为了单元测试与组件用例构造临时 Mock/Fake 状态；测试过程中为排查临时写入的测试数据，必须在测试完成后立即删除，确保生产代码库绝对纯净。
 
 ---
 
@@ -186,6 +191,7 @@ lib/
 Agent 在每次提交代码变更或完成任务前，必须执行以下自检：
 
 - [ ] **不要自己写 tvfocus**：是否全部采用 `dpad` (`DpadFocusable`、`DpadRegion`、`Dpad.wrap()`)？
+- [ ] **严格零 Mock**：生产代码（`lib/`）中是否彻底杜绝了任何 Mock/Fake/兜底假数据？错误是否真实传播至 UI？临时测试数据是否已全部清理？
 - [ ] **避免全量代码堆砌**：保持项目架构骨架精炼，逐步迭代，不做过度设计。
 - [ ] **代码生成校验**：是否运行了 `dart run build_runner build` 并确保所有生成文件（`generated/*.freezed.dart`, `generated/*.g.dart`）正常同步。
 - [ ] **静态分析无报错**：运行 `flutter analyze` 或确认无严重警告与编译错误。

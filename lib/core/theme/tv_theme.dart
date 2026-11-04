@@ -16,6 +16,7 @@ class TvTheme {
   static const Color tvTextPrimary = Color(0xFFF2F4F7);
   static const Color tvTextSecondary = Color(0xFF9EA3B0);
   static const Color tvTextDisabled = Color(0xFF5A5E6B);
+  static const Color tvDivider = Color(0xFF2A2D3A);
 
   static ThemeData get darkTheme {
     return ThemeData(

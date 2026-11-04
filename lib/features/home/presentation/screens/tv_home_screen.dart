@@ -7,6 +7,7 @@ import '../../../../core/theme/tv_theme.dart';
 import '../../../../router/route_paths.dart';
 import '../../../../widgets/tv_scaffold.dart';
 import '../../../../widgets/tv_status_view.dart';
+import '../../../user/presentation/providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../widgets/tv_video_card.dart';
 
@@ -44,12 +45,13 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final feedState = ref.watch(homeFeedProvider);
+    final authState = ref.watch(authProvider);
 
     return TvScaffold(
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // 左侧：标题与批次信息
+          // 左侧：标题与批次信息 / 个性化标识
           Row(
             children: [
               Container(
@@ -65,8 +67,39 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 '推荐视频',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
+              if (authState.isLoggedIn && authState.user != null) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: TvTheme.biliPink.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: TvTheme.biliPink.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 13,
+                        color: TvTheme.biliPink,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '个性化推荐 · ${authState.user!.uname}',
+                        style: const TextStyle(
+                          color: TvTheme.biliPink,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (feedState.videos.isNotEmpty) ...[
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(

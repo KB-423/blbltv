@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../router/route_paths.dart';
+import '../../../../widgets/tv_image.dart';
+import '../../../user/presentation/providers/auth_provider.dart';
 
 class NavRailItem {
   final String title;
@@ -17,7 +20,7 @@ class NavRailItem {
 }
 
 /// TV 左侧导航导轨
-class TvNavRail extends StatelessWidget {
+class TvNavRail extends ConsumerWidget {
   final String currentPath;
 
   const TvNavRail({
@@ -64,7 +67,9 @@ class TvNavRail extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
     return Container(
       width: 200,
       color: TvTheme.tvSurface,
@@ -114,6 +119,12 @@ class TvNavRail extends StatelessWidget {
               itemBuilder: (context, index) {
                 final item = items[index];
                 final isSelected = currentPath.startsWith(item.path);
+                final isUserTab = item.path == RoutePaths.user;
+                final isLoggedIn = authState.isLoggedIn && authState.user != null;
+
+                final displayTitle = (isUserTab && isLoggedIn)
+                    ? authState.user!.uname
+                    : item.title;
 
                 return DpadFocusable(
                   onSelect: () {
@@ -132,24 +143,40 @@ class TvNavRail extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          item.icon,
-                          color: isSelected
-                              ? TvTheme.biliPink
-                              : TvTheme.tvTextSecondary,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          item.title,
-                          style: TextStyle(
+                        if (isUserTab && isLoggedIn && authState.user!.face.isNotEmpty)
+                          ClipOval(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: TvImage(
+                                imageUrl: authState.user!.face,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          )
+                        else
+                          Icon(
+                            item.icon,
                             color: isSelected
-                                ? Colors.white
+                                ? TvTheme.biliPink
                                 : TvTheme.tvTextSecondary,
-                            fontSize: 16,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
+                            size: 22,
+                          ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            displayTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? Colors.white
+                                  : TvTheme.tvTextSecondary,
+                              fontSize: 16,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
                           ),
                         ),
                       ],

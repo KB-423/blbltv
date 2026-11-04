@@ -59,12 +59,17 @@ class TvErrorView extends StatelessWidget {
             size: 56,
           ),
           const SizedBox(height: 16),
-          Text(
-            error,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: TvTheme.tvTextSecondary,
-              fontSize: 16,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 48),
+            child: Text(
+              error,
+              textAlign: TextAlign.center,
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: TvTheme.tvTextSecondary,
+                fontSize: 16,
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -94,6 +99,63 @@ class TvErrorView extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// TV 空内容状态组件
+class TvEmptyView extends StatelessWidget {
+  final String message;
+  final VoidCallback? onRefresh;
+
+  const TvEmptyView({
+    super.key,
+    this.message = '暂无内容',
+    this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.inbox_rounded,
+            size: 56,
+            color: TvTheme.tvTextDisabled,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: const TextStyle(
+              color: TvTheme.tvTextSecondary,
+              fontSize: 16,
+            ),
+          ),
+          if (onRefresh != null) ...[
+            const SizedBox(height: 18),
+            DpadFocusable(
+              autofocus: true,
+              onSelect: onRefresh!,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: TvTheme.tvSurfaceLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  '刷新',
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

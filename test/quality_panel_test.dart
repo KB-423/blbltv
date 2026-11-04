@@ -1,0 +1,152 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dpad/dpad.dart';
+import 'package:bili_tv/core/storage/storage_service.dart';
+import 'package:bili_tv/models/user/user_info_model.dart';
+import 'package:bili_tv/models/video/play_url_model.dart';
+import 'package:bili_tv/features/user/presentation/providers/auth_provider.dart';
+import 'package:bili_tv/features/user/presentation/providers/auth_state.dart';
+import 'package:bili_tv/features/player/presentation/widgets/tv_quality_panel.dart';
+
+class _FakeAuthNotifier extends AuthNotifier {
+  final AuthState initialState;
+  _FakeAuthNotifier(this.initialState);
+
+  @override
+  AuthState build() => initialState;
+}
+
+void main() {
+  const qualities = [
+    VideoQualityItem(qn: 125, desc: 'HDR 真彩'),
+    VideoQualityItem(qn: 120, desc: '4K 超清'),
+    VideoQualityItem(qn: 80, desc: '1080P 高清'),
+    VideoQualityItem(qn: 64, desc: '720P 高清'),
+  ];
+
+  testWidgets('TvQualityPanel handles unlogged status correctly',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(prefs);
+
+    int selectedQn = 0;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storageServiceProvider.overrideWithValue(storage),
+          authProvider.overrideWith(
+            () => _FakeAuthNotifier(
+              const AuthState(isLoggedIn: false, user: null),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          builder: Dpad.wrap(),
+          home: Scaffold(
+            body: TvQualityPanel(
+              qualities: qualities,
+              currentQn: 64,
+              onSelectQuality: (qn) => selectedQn = qn,
+              onClose: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 验证未登录下 1080P 和 4K 均具有 [需登录] 标识，HDR 具有 [设备不支持] 标识
+    expect(find.text('需登录'), findsNWidgets(2));
+    expect(find.text('设备不支持'), findsOneWidget);
+
+    // 点击 1080P 需登录项，不触发切换，弹出提示
+    await tester.tap(find.text('1080P 高清'));
+    await tester.pump();
+    expect(selectedQn, 0);
+    expect(find.textContaining('1080P 及以上画质需登录后使用'), findsOneWidget);
+
+    // 点击 HDR 设备不支持项，不触发切换，弹出设备不支持提示
+    await tester.tap(find.text('HDR 真彩'));
+    await tester.pump();
+    expect(selectedQn, 0);
+    expect(find.textContaining('当前设备或系统未开启 HDR'), findsOneWidget);
+
+    // 点击可用画质 720P，正常切换
+    await tester.tap(find.text('720P 高清'));
+    await tester.pump();
+    expect(selectedQn, 64);
+  });
+
+  testWidgets('TvQualityPanel handles logged-in non-VIP and VIP correctly',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(prefs);
+
+    int selectedQn = 0;
+
+    // 普通登录用户 (vipStatus = 0)
+    final normalUser = const UserInfoModel(
+      mid: 10001,
+      uname: '普通用户',
+      isLogin: true,
+      vipStatus: 0,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storageServiceProvider.overrideWithValue(storage),
+          authProvider.overrideWith(
+            () => _FakeAuthNotifier(
+              AuthState(isLoggedIn: true, user: normalUser),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          builder: Dpad.wrap(),
+          home: Scaffold(
+            body: TvQualityPanel(
+              qualities: qualities,
+              currentQn: 64,
+              onSelectQuality: (qn) => selectedQn = qn,
+              onClose: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 普通用户 1080P 可选，4K 需 [大会员]
+    expect(find.text('需登录'), findsNothing);
+    expect(find.text('大会员'), findsOneWidget);
+
+    // 点击 4K 超清弹出大会员专享提示
+    await tester.tap(find.text('4K 超清'));
+    await tester.pump();
+    expect(selectedQn, 0);
+    expect(find.textContaining('哔哩哔哩大会员专享'), findsOneWidget);
+
+    // 点击 1080P 高清允许正常切换
+    await tester.tap(find.text('1080P 高清'));
+    await tester.pump();
+    expect(selectedQn, 80);
+  });
+}

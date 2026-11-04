@@ -8,6 +8,7 @@ import 'package:bili_tv/features/home/presentation/providers/home_state.dart';
 import 'package:bili_tv/features/home/presentation/screens/tv_home_screen.dart';
 import 'package:bili_tv/models/video/video_item_model.dart';
 import 'package:dpad/dpad.dart';
+import 'package:media_kit/media_kit.dart';
 
 class _TestHomeFeedNotifier extends HomeFeedNotifier {
   int refreshCount = 0;
@@ -42,6 +43,7 @@ class _TestHomeFeedNotifier extends HomeFeedNotifier {
 }
 
 void main() {
+  MediaKit.ensureInitialized();
   testWidgets('TvHomeScreen D-pad refresh and infinite scroll test',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
@@ -78,5 +80,83 @@ void main() {
     await tester.tap(find.text('换一批'));
     await tester.pump();
     expect(notifier.refreshCount, 1);
+  });
+
+  test('VideoItemModel safely parses polymorphic rcmd_reason and stats', () {
+    // 模拟真实 B 站 Map 结构的 rcmd_reason
+    final jsonWithMapReason = {
+      'id': 117533055126066,
+      'bvid': 'BV1Ybxk6CEXy',
+      'cid': 43195433550,
+      'title': '测试推荐视频',
+      'pic': 'http://i1.hdslb.com/bfs/archive/test.jpg',
+      'duration': 831,
+      'pubdate': 1793444400,
+      'owner': {
+        'mid': 730732,
+        'name': '测试UP主',
+        'face': 'http://i1.hdslb.com/bfs/face/test.jpg',
+      },
+      'stat': {
+        'view': 936396,
+        'like': 39127,
+        'danmaku': 1691,
+      },
+      'rcmd_reason': {
+        'content': '百万播放',
+        'reason_type': 1,
+      },
+    };
+
+    final model1 = VideoItemModel.fromJson(jsonWithMapReason);
+    expect(model1.bvid, 'BV1Ybxk6CEXy');
+    expect(model1.id, 117533055126066);
+    expect(model1.rcmdReason, '百万播放');
+    expect(model1.owner?.name, '测试UP主');
+    expect(model1.stat?.view, 936396);
+
+    // 模拟字符串类型的 rcmd_reason
+    final jsonWithStringReason = {
+      'id': 100,
+      'bvid': 'BV123',
+      'rcmd_reason': '热门精选',
+    };
+    final model2 = VideoItemModel.fromJson(jsonWithStringReason);
+    expect(model2.rcmdReason, '热门精选');
+
+    // 模拟 null 类型的 rcmd_reason
+    final jsonWithNullReason = {
+      'id': 101,
+      'bvid': 'BV456',
+      'rcmd_reason': null,
+    };
+    final model3 = VideoItemModel.fromJson(jsonWithNullReason);
+    expect(model3.rcmdReason, isNull);
+  });
+
+  test('VideoItemModel.fromSearchJson correctly parses search results and strips HTML', () {
+    final searchJson = {
+      'aid': 123456,
+      'bvid': 'BV1kS8H6VERt',
+      'title': '《<em class="keyword">黑神话</em>：悟空》演示',
+      'pic': '//i0.hdslb.com/bfs/archive/pic.jpg',
+      'author': '游戏科学',
+      'mid': 99999,
+      'upic': '//i0.hdslb.com/bfs/face/up.jpg',
+      'play': 1234567,
+      'video_review': 5432,
+      'duration': '15:20',
+      'pubdate': 1700000000,
+    };
+
+    final video = VideoItemModel.fromSearchJson(searchJson);
+    expect(video.bvid, 'BV1kS8H6VERt');
+    expect(video.title, '《黑神话：悟空》演示'); // 验证 HTML 标签清洗
+    expect(video.pic, 'https://i0.hdslb.com/bfs/archive/pic.jpg'); // 验证协议头补齐
+    expect(video.owner?.name, '游戏科学');
+    expect(video.owner?.mid, 99999);
+    expect(video.stat?.view, 1234567);
+    expect(video.stat?.danmaku, 5432);
+    expect(video.duration, 15 * 60 + 20); // 验证时间解析
   });
 }

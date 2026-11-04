@@ -16,13 +16,16 @@ class HomeRepository {
     int pageSize = 16,
   }) async {
     try {
+      // 请求数量留有冗余 (例如申请 24 条以对冲直播/推广广告过滤损耗)，确保填满完整行
+      final int requestPs = (pageSize <= 12) ? 18 : 24;
+
       final response = await _apiClient.getWbi<Map<String, dynamic>>(
         ApiConstants.recommendFeedWeb,
         queryParameters: {
           'version': 1,
           'feed_version': 'V8',
           'homepage_ver': 1,
-          'ps': pageSize,
+          'ps': requestPs,
           'fresh_idx': freshIdx,
           'brush': freshIdx,
           'fresh_type': 4,
@@ -45,55 +48,21 @@ class HomeRepository {
           }
         }
 
-        if (result.isNotEmpty) {
-          return result;
-        }
+        // 动态计算完整行卡片数：大屏 4 列网格必须保证数量为 4 的整数倍，消除最后一行半截排版缺陷
+        final int alignedCount = (result.length ~/ 4) * 4;
+        final int targetCount =
+            alignedCount >= pageSize ? pageSize : alignedCount;
+
+        return targetCount > 0 ? result.take(targetCount).toList() : result;
       }
-    } catch (e) {
-      debugPrint('[HomeRepository] 获取真实推荐失败, 启用大屏演示数据: $e');
-    }
 
-    // 网络不可达或未登录时，生成高质量演示数据保证 TV 端流畅调试
-    return _getFallbackVideos(freshIdx: freshIdx, count: pageSize);
-  }
-
-  /// 本地演示兜底视频列表（根据 freshIdx 生成不同批次内容）
-  List<VideoItemModel> _getFallbackVideos({
-    required int freshIdx,
-    required int count,
-  }) {
-    final baseOffset = (freshIdx - 1) * count;
-    final List<String> sampleCovers = [
-      'https://i0.hdslb.com/bfs/archive/4b6da93c0429712a326ff1faef844a47ef00195e.jpg',
-      'https://i0.hdslb.com/bfs/archive/cb22f25fcdddc8930b2089694e9f5509ca8ae101.jpg',
-      'https://i0.hdslb.com/bfs/archive/84370df44fcbfa5c7b39a3f2db7265ca5957d341.jpg',
-      'https://i0.hdslb.com/bfs/archive/33918b9cebb0ec538965ef82bcfa73c2a37f2fae.jpg',
-    ];
-
-    return List.generate(count, (index) {
-      final itemIndex = baseOffset + index + 1;
-      final coverUrl = sampleCovers[index % sampleCovers.length];
-
-      return VideoItemModel(
-        id: 10000 + itemIndex,
-        bvid: 'BV1${freshIdx}x411c$index',
-        cid: 20000 + itemIndex,
-        title: '【第 $freshIdx 批推荐】Bili for TV 大屏沉浸式体验精选视频 #$itemIndex',
-        pic: coverUrl,
-        duration: 120 + (index * 37) % 600,
-        owner: VideoOwner(
-          mid: 10000 + (index % 5),
-          name: 'TV演示创作者_${(index % 5) + 1}',
-          face: '',
-        ),
-        stat: VideoStat(
-          view: itemIndex * 15420,
-          danmaku: itemIndex * 112,
-          like: itemIndex * 890,
-        ),
-        rcmdReason: freshIdx == 1 && index < 2 ? '热门精选' : null,
+      throw Exception(
+        data?['message'] ?? '获取推荐失败: 接口返回异常状态 (code: ${data?['code']})',
       );
-    });
+    } catch (e) {
+      debugPrint('[HomeRepository] 获取真实推荐失败: $e');
+      rethrow;
+    }
   }
 }
 

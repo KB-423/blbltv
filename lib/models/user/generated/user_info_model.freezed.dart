@@ -12,38 +12,35 @@ part of '../user_info_model.dart';
 // GENERATED CODE - DO NOT MODIFY BY HAND
 // dart format off
 T _$identity<T>(T value) => value;
-
 /// @nodoc
 mixin _$UserInfoModel {
 
- int get mid; String get uname; String get face;@JsonKey(name: 'isLogin') bool get isLogin;@JsonKey(name: 'level_info_current_level') int get currentLevel; double get money;@JsonKey(name: 'vipType') int get vipType;
+ int get mid; String get uname; String get face;@JsonKey(name: 'isLogin') bool get isLogin;@JsonKey(name: 'current_level') int get currentLevel; double get money;@JsonKey(name: 'vipType') int get vipType;@JsonKey(name: 'vipStatus') int get vipStatus;@JsonKey(name: 'vip_label_text') String get vipLabelText;
 /// Create a copy of UserInfoModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
 $UserInfoModelCopyWith<UserInfoModel> get copyWith => _$UserInfoModelCopyWithImpl<UserInfoModel>(this as UserInfoModel, _$identity);
 
-  /// Serializes this UserInfoModel to a JSON map.
-  Map<String, dynamic> toJson();
 
 
 @override
 bool operator ==(Object other) {
   final _this = this as UserInfoModel;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserInfoModel&&(identical(other.mid, _this.mid) || other.mid == _this.mid)&&(identical(other.uname, _this.uname) || other.uname == _this.uname)&&(identical(other.face, _this.face) || other.face == _this.face)&&(identical(other.isLogin, _this.isLogin) || other.isLogin == _this.isLogin)&&(identical(other.currentLevel, _this.currentLevel) || other.currentLevel == _this.currentLevel)&&(identical(other.money, _this.money) || other.money == _this.money)&&(identical(other.vipType, _this.vipType) || other.vipType == _this.vipType));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is UserInfoModel&&(identical(other.mid, _this.mid) || other.mid == _this.mid)&&(identical(other.uname, _this.uname) || other.uname == _this.uname)&&(identical(other.face, _this.face) || other.face == _this.face)&&(identical(other.isLogin, _this.isLogin) || other.isLogin == _this.isLogin)&&(identical(other.currentLevel, _this.currentLevel) || other.currentLevel == _this.currentLevel)&&(identical(other.money, _this.money) || other.money == _this.money)&&(identical(other.vipType, _this.vipType) || other.vipType == _this.vipType)&&(identical(other.vipStatus, _this.vipStatus) || other.vipStatus == _this.vipStatus)&&(identical(other.vipLabelText, _this.vipLabelText) || other.vipLabelText == _this.vipLabelText));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
   final _this = this as UserInfoModel;
-  return Object.hash(runtimeType,_this.mid,_this.uname,_this.face,_this.isLogin,_this.currentLevel,_this.money,_this.vipType);
+  return Object.hash(runtimeType,_this.mid,_this.uname,_this.face,_this.isLogin,_this.currentLevel,_this.money,_this.vipType,_this.vipStatus,_this.vipLabelText);
 }
 
 @override
 String toString() {
   final _this = this as UserInfoModel;
-  return 'UserInfoModel(mid: ${_this.mid}, uname: ${_this.uname}, face: ${_this.face}, isLogin: ${_this.isLogin}, currentLevel: ${_this.currentLevel}, money: ${_this.money}, vipType: ${_this.vipType})';
+  return 'UserInfoModel(mid: ${_this.mid}, uname: ${_this.uname}, face: ${_this.face}, isLogin: ${_this.isLogin}, currentLevel: ${_this.currentLevel}, money: ${_this.money}, vipType: ${_this.vipType}, vipStatus: ${_this.vipStatus}, vipLabelText: ${_this.vipLabelText})';
 }
 
 
@@ -54,7 +51,7 @@ abstract mixin class $UserInfoModelCopyWith<$Res>  {
   factory $UserInfoModelCopyWith(UserInfoModel value, $Res Function(UserInfoModel) _then) = _$UserInfoModelCopyWithImpl;
 @useResult
 $Res call({
- int mid, String uname, String face,@JsonKey(name: 'isLogin') bool isLogin,@JsonKey(name: 'level_info_current_level') int currentLevel, double money,@JsonKey(name: 'vipType') int vipType
+ int mid, String uname, String face,@JsonKey(name: 'isLogin') bool isLogin,@JsonKey(name: 'current_level') int currentLevel, double money,@JsonKey(name: 'vipType') int vipType,@JsonKey(name: 'vipStatus') int vipStatus,@JsonKey(name: 'vip_label_text') String vipLabelText
 });
 
 
@@ -71,7 +68,7 @@ class _$UserInfoModelCopyWithImpl<$Res>
 
 /// Create a copy of UserInfoModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? mid = null,Object? uname = null,Object? face = null,Object? isLogin = null,Object? currentLevel = null,Object? money = null,Object? vipType = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? mid = null,Object? uname = null,Object? face = null,Object? isLogin = null,Object? currentLevel = null,Object? money = null,Object? vipType = null,Object? vipStatus = null,Object? vipLabelText = null,}) {
   return _then(UserInfoModel(
 mid: null == mid ? _self.mid : mid // ignore: cast_nullable_to_non_nullable
 as int,uname: null == uname ? _self.uname : uname // ignore: cast_nullable_to_non_nullable
@@ -80,7 +77,9 @@ as String,isLogin: null == isLogin ? _self.isLogin : isLogin // ignore: cast_nul
 as bool,currentLevel: null == currentLevel ? _self.currentLevel : currentLevel // ignore: cast_nullable_to_non_nullable
 as int,money: null == money ? _self.money : money // ignore: cast_nullable_to_non_nullable
 as double,vipType: null == vipType ? _self.vipType : vipType // ignore: cast_nullable_to_non_nullable
-as int,
+as int,vipStatus: null == vipStatus ? _self.vipStatus : vipStatus // ignore: cast_nullable_to_non_nullable
+as int,vipLabelText: null == vipLabelText ? _self.vipLabelText : vipLabelText // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 
@@ -165,10 +164,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'level_info_current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType, @JsonKey(name: 'vipStatus')  int vipStatus, @JsonKey(name: 'vip_label_text')  String vipLabelText)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _UserInfoModel() when $default != null:
-return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType);case _:
+return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType,_that.vipStatus,_that.vipLabelText);case _:
   return orElse();
 
 }
@@ -186,10 +185,10 @@ return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLeve
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'level_info_current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType, @JsonKey(name: 'vipStatus')  int vipStatus, @JsonKey(name: 'vip_label_text')  String vipLabelText)  $default,) {final _that = this;
 switch (_that) {
 case _UserInfoModel():
-return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType);case _:
+return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType,_that.vipStatus,_that.vipLabelText);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -206,10 +205,10 @@ return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLeve
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'level_info_current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int mid,  String uname,  String face, @JsonKey(name: 'isLogin')  bool isLogin, @JsonKey(name: 'current_level')  int currentLevel,  double money, @JsonKey(name: 'vipType')  int vipType, @JsonKey(name: 'vipStatus')  int vipStatus, @JsonKey(name: 'vip_label_text')  String vipLabelText)?  $default,) {final _that = this;
 switch (_that) {
 case _UserInfoModel() when $default != null:
-return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType);case _:
+return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLevel,_that.money,_that.vipType,_that.vipStatus,_that.vipLabelText);case _:
   return null;
 
 }
@@ -218,19 +217,21 @@ return $default(_that.mid,_that.uname,_that.face,_that.isLogin,_that.currentLeve
 }
 
 /// @nodoc
-@JsonSerializable()
+
 
 class _UserInfoModel implements UserInfoModel {
-  const _UserInfoModel({this.mid = 0, this.uname = '', this.face = '', @JsonKey(name: 'isLogin') this.isLogin = false, @JsonKey(name: 'level_info_current_level') this.currentLevel = 0, this.money = 0, @JsonKey(name: 'vipType') this.vipType = 0});
-  factory _UserInfoModel.fromJson(Map<String, dynamic> json) => _$UserInfoModelFromJson(json);
+  const _UserInfoModel({this.mid = 0, this.uname = '', this.face = '', @JsonKey(name: 'isLogin') this.isLogin = false, @JsonKey(name: 'current_level') this.currentLevel = 0, this.money = 0.0, @JsonKey(name: 'vipType') this.vipType = 0, @JsonKey(name: 'vipStatus') this.vipStatus = 0, @JsonKey(name: 'vip_label_text') this.vipLabelText = ''});
+  
 
 @override@JsonKey() final  int mid;
 @override@JsonKey() final  String uname;
 @override@JsonKey() final  String face;
 @override@JsonKey(name: 'isLogin') final  bool isLogin;
-@override@JsonKey(name: 'level_info_current_level') final  int currentLevel;
+@override@JsonKey(name: 'current_level') final  int currentLevel;
 @override@JsonKey() final  double money;
 @override@JsonKey(name: 'vipType') final  int vipType;
+@override@JsonKey(name: 'vipStatus') final  int vipStatus;
+@override@JsonKey(name: 'vip_label_text') final  String vipLabelText;
 
 /// Create a copy of UserInfoModel
 /// with the given fields replaced by the non-null parameter values.
@@ -238,25 +239,22 @@ class _UserInfoModel implements UserInfoModel {
 @pragma('vm:prefer-inline')
 _$UserInfoModelCopyWith<_UserInfoModel> get copyWith => __$UserInfoModelCopyWithImpl<_UserInfoModel>(this, _$identity);
 
-@override
-Map<String, dynamic> toJson() {
-  return _$UserInfoModelToJson(this, );
-}
+
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserInfoModel&&(identical(other.mid, mid) || other.mid == mid)&&(identical(other.uname, uname) || other.uname == uname)&&(identical(other.face, face) || other.face == face)&&(identical(other.isLogin, isLogin) || other.isLogin == isLogin)&&(identical(other.currentLevel, currentLevel) || other.currentLevel == currentLevel)&&(identical(other.money, money) || other.money == money)&&(identical(other.vipType, vipType) || other.vipType == vipType));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _UserInfoModel&&(identical(other.mid, mid) || other.mid == mid)&&(identical(other.uname, uname) || other.uname == uname)&&(identical(other.face, face) || other.face == face)&&(identical(other.isLogin, isLogin) || other.isLogin == isLogin)&&(identical(other.currentLevel, currentLevel) || other.currentLevel == currentLevel)&&(identical(other.money, money) || other.money == money)&&(identical(other.vipType, vipType) || other.vipType == vipType)&&(identical(other.vipStatus, vipStatus) || other.vipStatus == vipStatus)&&(identical(other.vipLabelText, vipLabelText) || other.vipLabelText == vipLabelText));
 }
 
-@JsonKey(includeFromJson: false, includeToJson: false)
+
 @override
 int get hashCode {
-    return Object.hash(runtimeType,mid,uname,face,isLogin,currentLevel,money,vipType);
+    return Object.hash(runtimeType,mid,uname,face,isLogin,currentLevel,money,vipType,vipStatus,vipLabelText);
 }
 
 @override
 String toString() {
-    return 'UserInfoModel(mid: $mid, uname: $uname, face: $face, isLogin: $isLogin, currentLevel: $currentLevel, money: $money, vipType: $vipType)';
+    return 'UserInfoModel(mid: $mid, uname: $uname, face: $face, isLogin: $isLogin, currentLevel: $currentLevel, money: $money, vipType: $vipType, vipStatus: $vipStatus, vipLabelText: $vipLabelText)';
 }
 
 
@@ -267,7 +265,7 @@ abstract mixin class _$UserInfoModelCopyWith<$Res> implements $UserInfoModelCopy
   factory _$UserInfoModelCopyWith(_UserInfoModel value, $Res Function(_UserInfoModel) _then) = __$UserInfoModelCopyWithImpl;
 @override @useResult
 $Res call({
- int mid, String uname, String face,@JsonKey(name: 'isLogin') bool isLogin,@JsonKey(name: 'level_info_current_level') int currentLevel, double money,@JsonKey(name: 'vipType') int vipType
+ int mid, String uname, String face,@JsonKey(name: 'isLogin') bool isLogin,@JsonKey(name: 'current_level') int currentLevel, double money,@JsonKey(name: 'vipType') int vipType,@JsonKey(name: 'vipStatus') int vipStatus,@JsonKey(name: 'vip_label_text') String vipLabelText
 });
 
 
@@ -284,7 +282,7 @@ class __$UserInfoModelCopyWithImpl<$Res>
 
 /// Create a copy of UserInfoModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? mid = null,Object? uname = null,Object? face = null,Object? isLogin = null,Object? currentLevel = null,Object? money = null,Object? vipType = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? mid = null,Object? uname = null,Object? face = null,Object? isLogin = null,Object? currentLevel = null,Object? money = null,Object? vipType = null,Object? vipStatus = null,Object? vipLabelText = null,}) {
   return _then(_UserInfoModel(
 mid: null == mid ? _self.mid : mid // ignore: cast_nullable_to_non_nullable
 as int,uname: null == uname ? _self.uname : uname // ignore: cast_nullable_to_non_nullable
@@ -293,7 +291,9 @@ as String,isLogin: null == isLogin ? _self.isLogin : isLogin // ignore: cast_nul
 as bool,currentLevel: null == currentLevel ? _self.currentLevel : currentLevel // ignore: cast_nullable_to_non_nullable
 as int,money: null == money ? _self.money : money // ignore: cast_nullable_to_non_nullable
 as double,vipType: null == vipType ? _self.vipType : vipType // ignore: cast_nullable_to_non_nullable
-as int,
+as int,vipStatus: null == vipStatus ? _self.vipStatus : vipStatus // ignore: cast_nullable_to_non_nullable
+as int,vipLabelText: null == vipLabelText ? _self.vipLabelText : vipLabelText // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

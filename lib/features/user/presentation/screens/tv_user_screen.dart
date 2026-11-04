@@ -1,14 +1,38 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../widgets/tv_scaffold.dart';
+import '../../../../widgets/tv_status_view.dart';
+import '../providers/auth_provider.dart';
+import '../widgets/tv_bangumi_tab.dart';
+import '../widgets/tv_favorites_tab.dart';
+import '../widgets/tv_history_tab.dart';
+import '../widgets/tv_login_panel.dart';
+import '../widgets/tv_user_header.dart';
 
-/// TV 个人中心与扫码登录骨架
-class TvUserScreen extends StatelessWidget {
+/// TV 个人中心屏幕
+class TvUserScreen extends ConsumerStatefulWidget {
   const TvUserScreen({super.key});
 
   @override
+  ConsumerState<TvUserScreen> createState() => _TvUserScreenState();
+}
+
+class _TvUserScreenState extends ConsumerState<TvUserScreen> {
+  int _selectedTabIndex = 0;
+
+  final List<({IconData icon, String label})> _tabs = const [
+    (icon: Icons.history_rounded, label: '观看历史'),
+    (icon: Icons.star_rounded, label: '我的收藏'),
+    (icon: Icons.movie_filter_rounded, label: '我的追番'),
+  ];
+
+  @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     return TvScaffold(
       header: Row(
         children: [
@@ -25,158 +49,115 @@ class TvUserScreen extends StatelessWidget {
             '个人中心',
             style: Theme.of(context).textTheme.headlineMedium,
           ),
-        ],
-      ),
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Container(
-              padding: const EdgeInsets.all(28),
+          if (authState.isLoggedIn && authState.user != null) ...[
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: TvTheme.tvSurface,
+                color: TvTheme.tvSurfaceLight,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 180,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(12),
-                    child: const Center(
-                      child: Icon(
-                        Icons.qr_code_2_rounded,
-                        size: 150,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    '请使用 哔哩哔哩手机客户端 扫码登录',
-                    style: TextStyle(
-                      color: TvTheme.tvTextPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '登录后可同步播放历史、追番、动态与大会员权益',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: TvTheme.tvTextSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  DpadFocusable(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: TvTheme.tvSurfaceLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        '刷新二维码',
-                        style: TextStyle(
-                          color: TvTheme.tvTextPrimary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                '已登录 · ${authState.user!.uname}',
+                style: const TextStyle(
+                  color: TvTheme.tvTextSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            flex: 6,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildOptionItem(
-                  icon: Icons.history_rounded,
-                  title: '历史记录',
-                  subtitle: '查看最近在大屏与各端观看的视频',
-                ),
-                const SizedBox(height: 16),
-                _buildOptionItem(
-                  icon: Icons.star_border_rounded,
-                  title: '我的收藏',
-                  subtitle: '浏览个人收藏夹视频',
-                ),
-                const SizedBox(height: 16),
-                _buildOptionItem(
-                  icon: Icons.watch_later_outlined,
-                  title: '稍后再看',
-                  subtitle: '标记并在大屏空闲时继续播放',
-                ),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
+      body: _buildBody(authState),
     );
   }
 
-  Widget _buildOptionItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-  }) {
-    return DpadFocusable(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: TvTheme.tvSurface,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 28, color: TvTheme.biliPink),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: TvTheme.tvTextPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+  Widget _buildBody(dynamic authState) {
+    if (authState.isCheckingLogin) {
+      return const TvLoadingView(message: '正在核验登录状态...');
+    }
+
+    if (!authState.isLoggedIn || authState.user == null) {
+      return const TvLoginPanel();
+    }
+
+    final user = authState.user!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 顶部用户信息栏
+        TvUserHeader(user: user),
+
+        const SizedBox(height: 20),
+
+        // 分类标签栏 (遥控器方向键切换)
+        Row(
+          children: List.generate(_tabs.length, (index) {
+            final tab = _tabs[index];
+            final isSelected = _selectedTabIndex == index;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 14),
+              child: DpadFocusable(
+                onSelect: () {
+                  setState(() {
+                    _selectedTabIndex = index;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? TvTheme.biliPink : TvTheme.tvSurface,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSelected
+                          ? TvTheme.biliPink
+                          : TvTheme.tvDivider,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: TvTheme.tvTextSecondary,
-                      fontSize: 13,
-                    ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        tab.icon,
+                        size: 18,
+                        color: isSelected ? Colors.white : TvTheme.tvTextSecondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        tab.label,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : TvTheme.tvTextPrimary,
+                          fontSize: 14,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: TvTheme.tvTextDisabled,
-              size: 24,
-            ),
-          ],
+            );
+          }),
         ),
-      ),
+
+        const SizedBox(height: 8),
+
+        // 对应分类内容区域
+        Expanded(
+          child: IndexedStack(
+            index: _selectedTabIndex,
+            children: const [
+              TvHistoryTab(),
+              TvFavoritesTab(),
+              TvBangumiTab(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:bili_tv/core/storage/storage_service.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_provider.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_state.dart';
 import 'package:bili_tv/main.dart';
+import 'package:media_kit/media_kit.dart';
 
 class _FakeHomeFeedNotifier extends HomeFeedNotifier {
   @override
@@ -18,6 +19,7 @@ class _FakeHomeFeedNotifier extends HomeFeedNotifier {
 }
 
 void main() {
+  MediaKit.ensureInitialized();
   testWidgets('BiliTvApp smoke test', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;

@@ -3,6 +3,8 @@ import '../core/constants/api_constants.dart';
 import '../core/theme/tv_theme.dart';
 
 /// 适用于 TV 端并携带 B 站防盗链 Referer 的网络图片组件
+typedef TvImage = TvNetworkImage;
+
 class TvNetworkImage extends StatelessWidget {
   final String imageUrl;
   final double? width;

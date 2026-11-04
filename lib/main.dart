@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+import 'package:media_kit/media_kit.dart';
 
 import 'core/storage/storage_service.dart';
 import 'core/theme/tv_theme.dart';
@@ -8,6 +9,8 @@ import 'router/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MediaKit.ensureInitialized();
+
   final storageService = await StorageService.init();
 
   runApp(

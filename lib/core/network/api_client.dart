@@ -35,6 +35,7 @@ class ApiClient {
   Dio get dio => _dio;
 
   Future<void> initCookieJar() async {
+    if (_cookieJar != null) return;
     try {
       final Directory appDocDir = await getApplicationDocumentsDirectory();
       final String cookiePath = '${appDocDir.path}/bili_tv_cookies';
@@ -47,10 +48,20 @@ class ApiClient {
     }
   }
 
+  /// 清除持久化 Cookie (退出登录)
+  Future<void> clearCookies() async {
+    await initCookieJar();
+    if (_cookieJar != null) {
+      await _cookieJar!.deleteAll();
+    }
+  }
+
   void _setupInterceptors() {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          await initCookieJar();
+
           // 注入 Cookie
           if (_cookieJar != null) {
             final uri = options.uri;
@@ -65,11 +76,19 @@ class ApiClient {
           final buvid = _storageService.buvid;
           if (buvid != null && buvid.isNotEmpty) {
             options.headers['buvid3'] = buvid;
+            final existingCookie = options.headers['cookie']?.toString() ?? '';
+            if (!existingCookie.contains('buvid3=')) {
+              options.headers['cookie'] = existingCookie.isEmpty
+                  ? 'buvid3=$buvid'
+                  : '$existingCookie; buvid3=$buvid';
+            }
           }
 
           return handler.next(options);
         },
         onResponse: (response, handler) async {
+          await initCookieJar();
+
           // 保存 Cookie
           if (_cookieJar != null && response.headers.map['set-cookie'] != null) {
             final uri = response.requestOptions.uri;
@@ -78,6 +97,8 @@ class ApiClient {
                 .map((str) => Cookie.fromSetCookieValue(str))
                 .toList();
             await _cookieJar!.saveFromResponse(uri, cookies);
+            final rootUri = Uri.parse('https://bilibili.com');
+            await _cookieJar!.saveFromResponse(rootUri, cookies);
           }
           return handler.next(response);
         },
@@ -89,6 +110,39 @@ class ApiClient {
     );
   }
 
+  /// 检查并获取 Buvid (buvid3 / buvid4) 以防接口被风控拦截
+  Future<void> ensureBuvid() async {
+    final buvid = _storageService.buvid;
+    if (buvid != null && buvid.isNotEmpty) {
+      return;
+    }
+
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        'https://api.bilibili.com/x/frontend/finger/spi',
+      );
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['data'] != null) {
+        final b3 = data['data']['b_3']?.toString() ?? '';
+        final b4 = data['data']['b_4']?.toString() ?? '';
+        if (b3.isNotEmpty) {
+          await _storageService.setBuvid(b3);
+          await initCookieJar();
+          if (_cookieJar != null) {
+            final rootUri = Uri.parse('https://bilibili.com');
+            await _cookieJar!.saveFromResponse(rootUri, [
+              Cookie('buvid3', b3)..domain = '.bilibili.com',
+              if (b4.isNotEmpty)
+                Cookie('buvid4', b4)..domain = '.bilibili.com',
+            ]);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiClient] 获取 Buvid 异常: $e');
+    }
+  }
+
   /// 检查并获取 Wbi 签名所需的 imgKey 与 subKey
   Future<void> ensureWbiKeys() async {
     final imgKey = _storageService.wbiImgKey;
@@ -98,6 +152,7 @@ class ApiClient {
     }
 
     try {
+      await ensureBuvid();
       final res = await _dio.get<Map<String, dynamic>>(ApiConstants.navUserInfo);
       final data = res.data;
       if (data != null && data['data'] != null && data['data']['wbi_img'] != null) {
@@ -124,6 +179,7 @@ class ApiClient {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    await ensureBuvid();
     await ensureWbiKeys();
 
     final imgKey = _storageService.wbiImgKey ?? '';
