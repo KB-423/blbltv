@@ -15,7 +15,7 @@ class AuthNotifier extends Notifier<AuthState> {
       _pollTimer?.cancel();
     });
 
-    // 应用启动时自动核验已有会话 Cookie
+    // 应用启动时仅静默核验已有会话 Cookie，严禁在未进入登录页前预拉取二维码
     Future.microtask(checkLoginStatus);
     return const AuthState();
   }
@@ -46,12 +46,18 @@ class AuthNotifier extends Notifier<AuthState> {
       isLoggedIn: false,
       user: null,
     );
-
-    // 未登录时自动拉取二维码准备大屏扫码
-    startQrLogin();
   }
 
-  /// 发起 TV 扫码登录流程
+  /// 停止轮询（离开登录页面时释放资源）
+  void stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    if (state.isPolling) {
+      state = state.copyWith(isPolling: false);
+    }
+  }
+
+  /// 发起 TV 扫码登录流程 (仅在用户主动进入登录页面时按需调用)
   Future<void> startQrLogin() async {
     _pollTimer?.cancel();
     state = state.copyWith(
@@ -123,7 +129,7 @@ class AuthNotifier extends Notifier<AuthState> {
             // 二维码已失效
             timer.cancel();
             state = state.copyWith(
-              qrMessage: '二维码已过期，请刷新',
+              qrMessage: '二维码已过期，请按确定键刷新',
               isQrExpired: true,
               isPolling: false,
             );
@@ -142,7 +148,7 @@ class AuthNotifier extends Notifier<AuthState> {
 
   /// 退出登录
   Future<void> logout() async {
-    _pollTimer?.cancel();
+    stopPolling();
     try {
       await _repository.logout();
     } catch (e) {
@@ -153,13 +159,15 @@ class AuthNotifier extends Notifier<AuthState> {
       isCheckingLogin: false,
       isLoggedIn: false,
       user: null,
+      qrUrl: '',
+      qrKey: '',
+      qrMessage: '',
+      isPolling: false,
+      isQrExpired: false,
     );
 
     // 退出后刷新首页回退至游客热门流
     ref.read(homeFeedProvider.notifier).refresh();
-
-    // 重新准备新的二维码
-    startQrLogin();
   }
 }
 

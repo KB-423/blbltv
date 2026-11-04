@@ -7,6 +7,7 @@ import '../../../../core/theme/tv_theme.dart';
 import '../../../../router/route_paths.dart';
 import '../../../../widgets/tv_scaffold.dart';
 import '../../../../widgets/tv_status_view.dart';
+import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
 import '../../../user/presentation/providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../widgets/tv_video_card.dart';
@@ -16,6 +17,7 @@ import '../widgets/tv_video_card.dart';
 /// - 顶部【换一批】按钮承接遥控器向上刷新体验
 /// - 列表使用 DpadRegion 保持焦点记忆 (DpadEnterBehavior.restore)
 /// - 焦点触底 (最后一行) 自动触发无缝预加载下一页
+/// - 最左列支持遥控器左键平滑切回左侧导轨
 class TvHomeScreen extends ConsumerStatefulWidget {
   const TvHomeScreen({super.key});
 
@@ -25,10 +27,33 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _firstCardFocusNode =
+      FocusNode(debugLabel: 'HomeFirstCardFocus');
+  bool _hasInitialFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 首次进入若已存在缓存数据，下一帧立即将焦点请求给第一张推荐卡片
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tryInitialFocus();
+    });
+  }
+
+  void _tryInitialFocus() {
+    if (!_hasInitialFocused && mounted) {
+      final videos = ref.read(homeFeedProvider).videos;
+      if (videos.isNotEmpty && _firstCardFocusNode.canRequestFocus) {
+        _hasInitialFocused = true;
+        _firstCardFocusNode.requestFocus();
+      }
+    }
+  }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _firstCardFocusNode.dispose();
     super.dispose();
   }
 
@@ -44,6 +69,15 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 监听推荐视频数据返回：一旦异步数据到位且尚未获得首焦，下一帧立刻主动请求焦点给第一张卡片
+    ref.listen(homeFeedProvider, (previous, next) {
+      if (!_hasInitialFocused && next.videos.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _tryInitialFocus();
+        });
+      }
+    });
+
     final feedState = ref.watch(homeFeedProvider);
     final authState = ref.watch(authProvider);
 
@@ -122,8 +156,14 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           // 右侧：大屏遥控器操作工具栏 (刷新/换一批、返回顶部)
           Row(
             children: [
-              // “换一批”按钮 (对应电视的刷新操作)
+              // “换一批”按钮 (对应电视的刷新操作，向左时切回左侧导轨)
               DpadFocusable(
+                onDirection: (direction) {
+                  if (direction == TraversalDirection.left) {
+                    return ref.read(navRailFocusServiceProvider).focusSelected();
+                  }
+                  return false;
+                },
                 onSelect: () => ref.read(homeFeedProvider.notifier).refresh(),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -231,6 +271,12 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             const SizedBox(height: 16),
             DpadFocusable(
               autofocus: true,
+              onDirection: (direction) {
+                if (direction == TraversalDirection.left) {
+                  return ref.read(navRailFocusServiceProvider).focusSelected();
+                }
+                return false;
+              },
               onSelect: () => ref.read(homeFeedProvider.notifier).refresh(),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
@@ -251,6 +297,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     // 采用 DpadRegion 保持焦点记忆，离开并返回时恢复之前浏览的卡片位置
     return DpadRegion(
       enter: DpadEnterBehavior.restore,
+      horizontalEdge: DpadEdgeBehavior.leave,
       child: CustomScrollView(
         controller: _scrollController,
         slivers: [
@@ -270,6 +317,14 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                   return TvVideoCard(
                     video: video,
                     autofocus: index == 0,
+                    focusNode: index == 0 ? _firstCardFocusNode : null,
+                    onDirection: (direction) {
+                      // 位于每行最左列 (第 0 列) 时按左方向键，平滑切回左侧导轨
+                      if (direction == TraversalDirection.left && index % 4 == 0) {
+                        return ref.read(navRailFocusServiceProvider).focusSelected();
+                      }
+                      return false;
+                    },
                     onFocusChange: (focused) {
                       // TV 触底/上拉加载逻辑：当焦点移动至倒数一行 (最后 4 个) 且获得焦点时，自动无缝加载下一页
                       if (focused && index >= videos.length - 4) {

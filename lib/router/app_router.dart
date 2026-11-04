@@ -13,7 +13,7 @@ import '../features/settings/presentation/screens/tv_settings_screen.dart';
 import '../features/user/presentation/screens/tv_user_screen.dart';
 import 'route_paths.dart';
 
-final GlobalKey<NavigatorState> _rootNavigatorKey =
+final GlobalKey<NavigatorState> rootNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'root');
 final GlobalKey<NavigatorState> _shellNavigatorKey =
     GlobalKey<NavigatorState>(debugLabel: 'shell');
@@ -21,7 +21,7 @@ final GlobalKey<NavigatorState> _shellNavigatorKey =
 /// 全局路由配置 Provider
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    navigatorKey: _rootNavigatorKey,
+    navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.home,
     routes: [
       // 顶级重定向
@@ -88,7 +88,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // 全屏播放器独立路由（脱离侧边栏）
       GoRoute(
         path: RoutePaths.player,
-        parentNavigatorKey: _rootNavigatorKey,
+        parentNavigatorKey: rootNavigatorKey,
         builder: (context, state) {
           final bvid = state.pathParameters['bvid'] ?? '';
           return TvPlayerScreen(bvid: bvid);

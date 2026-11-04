@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/video_url_resolver.dart';
 import '../../../../models/video/play_url_model.dart';
 
 /// 视频播放器数据仓库
@@ -95,38 +96,19 @@ class PlayerRepository {
           final List<dynamic> videoList = dash['video'] ?? [];
           final List<dynamic> audioList = dash['audio'] ?? [];
 
-          // 匹配与目标清晰度最贴合的视频轨
-          for (final v in videoList) {
-            if (v is Map<String, dynamic> && v['id'] == qn) {
-              selectedVideo = v;
-              break;
-            }
-          }
-          // 若无精确匹配（如非大会员降级），选择当前可用的第一条流（通常为最高权限流）
-          selectedVideo ??= videoList.isNotEmpty
-              ? (videoList.first as Map<String, dynamic>)
-              : null;
+          // 核心优化：按硬件解码友好度选择最佳编码轨 (HEVC > AVC > AV1)
+          // 彻底解决 B 站 4K 默认下发 AV1 导致移动端/电视因缺少 AV1 硬解走 CPU 软解严重掉帧的问题
+          selectedVideo = _selectBestCodecTrack(videoList, qn);
 
           if (selectedVideo != null) {
-            playUrl = (selectedVideo['baseUrl'] ??
-                    selectedVideo['base_url'] ??
-                    (selectedVideo['backupUrl'] != null &&
-                            (selectedVideo['backupUrl'] as List).isNotEmpty
-                        ? selectedVideo['backupUrl'][0]
-                        : ''))
-                .toString();
+            // 通过 VideoUrlResolver 剔除并过滤 MCDN / PCDN 节点，重写为官方高速镜像
+            playUrl = VideoUrlResolver.resolveUrl(selectedVideo);
           }
 
-          // 提取最高品质音轨
+          // 提取最高品质音轨并过滤 MCDN
           if (audioList.isNotEmpty && audioList.first is Map<String, dynamic>) {
             final firstAudio = audioList.first as Map<String, dynamic>;
-            audioUrl = (firstAudio['baseUrl'] ??
-                    firstAudio['base_url'] ??
-                    (firstAudio['backupUrl'] != null &&
-                            (firstAudio['backupUrl'] as List).isNotEmpty
-                        ? firstAudio['backupUrl'][0]
-                        : ''))
-                .toString();
+            audioUrl = VideoUrlResolver.resolveUrl(firstAudio);
           }
         }
 
@@ -134,7 +116,8 @@ class PlayerRepository {
         if (playUrl.isEmpty) {
           final List<dynamic>? durlList = playData['durl'];
           if (durlList != null && durlList.isNotEmpty) {
-            playUrl = durlList[0]['url'] as String? ?? '';
+            final raw = durlList[0]['url'] as String? ?? '';
+            playUrl = VideoUrlResolver.cleanUrl(raw);
           }
         }
 
@@ -162,6 +145,86 @@ class PlayerRepository {
     } catch (e) {
       debugPrint('[PlayerRepository] 获取播放链接失败: $e');
       rethrow;
+    }
+  }
+
+  /// 从满足目标清晰度的多个轨中，智能优选具备最高硬件硬解兼容性的编码轨
+  /// 优先级策略：HEVC (H.265, codecid: 7) > AVC (H.264, codecid: 1) > AV1 (codecid: 12)
+  /// 原因：当前绝大多数电视芯片和平板对 4K HEVC 60fps 拥有 100% 的硬件硬解覆盖，
+  /// 而 AV1 在大部分移动/大屏芯片上没有硬解码器，会被迫走 CPU 软解导致满载狂掉帧。
+  Map<String, dynamic>? _selectBestCodecTrack(
+    List<dynamic> videoList,
+    int targetQn,
+  ) {
+    final List<Map<String, dynamic>> matchedTracks = [];
+    for (final v in videoList) {
+      if (v is Map<String, dynamic> && v['id'] == targetQn) {
+        matchedTracks.add(v);
+      }
+    }
+
+    if (matchedTracks.isEmpty) {
+      // 若无精确匹配画质，在全部可用轨中降级回退
+      for (final v in videoList) {
+        if (v is Map<String, dynamic>) {
+          matchedTracks.add(v);
+        }
+      }
+    }
+
+    if (matchedTracks.isEmpty) return null;
+
+    // 评分机制：优先保障硬件解码流畅度
+    int getCodecScore(Map<String, dynamic> track) {
+      final codecid = track['codecid'] as int? ?? 0;
+      final codecs = (track['codecs'] as String? ?? '').toLowerCase();
+
+      // HEVC (H.265) -> 得分最高 (绝大多数芯片具备 4K 60fps 硬解码器)
+      if (codecid == 7 || codecs.contains('hev') || codecs.contains('hvc')) {
+        return 300;
+      }
+      // AVC (H.264) -> 通用硬解
+      if (codecid == 1 || codecs.contains('avc')) {
+        return 200;
+      }
+      // AV1 -> 若硬件无 AV1 硬解单元则走 CPU 软解卡顿，放在最后兜底
+      if (codecid == 12 || codecs.contains('av01')) {
+        return 100;
+      }
+      return 0;
+    }
+
+    matchedTracks.sort((a, b) => getCodecScore(b).compareTo(getCodecScore(a)));
+    return matchedTracks.first;
+  }
+
+  /// 向 B 站官方上报播放进度与心跳，使视频正式进入用户的观看历史记录
+  Future<void> reportHeartbeat({
+    required String bvid,
+    required int cid,
+    required int playedTime,
+    int duration = 0,
+  }) async {
+    try {
+      final csrf = await _apiClient.getCsrfToken();
+
+      await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.videoHeartbeat,
+        queryParameters: {
+          'bvid': bvid,
+          'cid': cid,
+          'played_time': playedTime,
+          'realtime': playedTime,
+          'start_ts': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          'type': 3,
+          'sub_type': 0,
+          if (csrf.isNotEmpty) 'csrf': csrf,
+        },
+      );
+      debugPrint(
+          '[PlayerRepository] 成功上报播放心跳: bvid=$bvid, playedTime=$playedTime');
+    } catch (e) {
+      debugPrint('[PlayerRepository] 上报播放心跳失败 (不影响播放): $e');
     }
   }
 

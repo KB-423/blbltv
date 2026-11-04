@@ -11,9 +11,15 @@ pluginManagement {
     includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
 
     repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
+        // 阿里云 Gradle 插件镜像，对应 gradlePluginPortal()
+        maven("https://maven.aliyun.com/repository/gradle-plugin")
+        // 阿里云 Google 镜像，对应 google()
+        maven("https://maven.aliyun.com/repository/google")
+        // 阿里云公共镜像，对应 mavenCentral()
+        maven("https://maven.aliyun.com/repository/public")
+        // google()
+        // mavenCentral()
+        // gradlePluginPortal()
     }
 }
 

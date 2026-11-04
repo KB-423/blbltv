@@ -25,6 +25,7 @@ class ApiConstants {
   static const String videoDetail = '/x/web-interface/view';
   static const String videoPlayUrl = '/x/player/wbi/playurl';
   static const String bangumiPlayUrl = '/pgc/player/web/playurl';
+  static const String videoHeartbeat = '/x/click-interface/web/heartbeat';
 
   // 登录与认证 (TV 扫码流)
   static const String qrcodeGenerate =
@@ -45,4 +46,3 @@ class ApiConstants {
   static const String searchByType = '/x/web-interface/wbi/search/type';
   static const String hotSearchList = 'https://s.search.bilibili.com/main/hotword';
 }
-

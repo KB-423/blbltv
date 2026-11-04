@@ -37,6 +37,14 @@ class StorageService {
   Future<bool> setHdrEnabled(bool val) =>
       _prefs.setBool('key_enable_hdr', val);
 
+  // 视频播放历史进度 (以 bvid 为 key 保存播放秒数)
+  int getVideoProgress(String bvid) =>
+      _prefs.getInt('history_pos_$bvid') ?? 0;
+  Future<bool> saveVideoProgress(String bvid, int seconds) =>
+      _prefs.setInt('history_pos_$bvid', seconds);
+  Future<bool> removeVideoProgress(String bvid) =>
+      _prefs.remove('history_pos_$bvid');
+
   // 通用读写
   String? getString(String key) => _prefs.getString(key);
   Future<bool> setString(String key, String val) => _prefs.setString(key, val);
@@ -52,4 +60,3 @@ class StorageService {
 final storageServiceProvider = Provider<StorageService>((ref) {
   throw UnimplementedError('StorageService must be initialized in main()');
 });
-

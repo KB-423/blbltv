@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
 import 'package:go_router/go_router.dart';
@@ -13,7 +14,7 @@ import '../providers/search_state.dart';
 
 /// TV 搜索界面
 /// 完全遵循 10-foot TV 交互规范：
-/// - 采用原生 TV TextField（调起电视系统自带的输入法，如 Android TV Gboard / Leanback IME）
+/// - 采用原生 TV TextField（调起电视系统自带的输入法，如 Android TV Gboard / Leanback IME / 搜狗输入法）
 /// - 支持遥控器一键点击实时热搜词快速直达
 /// - 搜索结果采用 4 列卡片网格复用展示，支持遥控器导航与无缝全屏播放
 class TvSearchScreen extends ConsumerStatefulWidget {
@@ -24,19 +25,54 @@ class TvSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
+  static const MethodChannel _imeChannel =
+      MethodChannel('cloud.kitasaitamablues.bili_tv/ime');
+
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _inputFocusNode.addListener(_onFocusChange);
+  }
+
+  void _onFocusChange() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    _inputFocusNode.removeListener(_onFocusChange);
     _searchController.dispose();
     _inputFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
+  /// 呼出系统软键盘/输入法
+  void _openKeyboard() {
+    _inputFocusNode.requestFocus();
+    SystemChannels.textInput.invokeMethod('TextInput.show');
+    try {
+      _imeChannel.invokeMethod('showIme');
+    } catch (_) {}
+  }
+
+  /// 隐藏软键盘
+  void _hideKeyboard() {
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+    try {
+      _imeChannel.invokeMethod('hideIme');
+    } catch (_) {}
+    _inputFocusNode.unfocus();
+  }
+
   void _submitSearch(String text) {
+    _hideKeyboard();
     final query = text.trim();
     if (query.isNotEmpty) {
       ref.read(searchProvider.notifier).search(query);
@@ -72,18 +108,34 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
 
               // TV 优化搜索输入框 (使用电视系统自带输入法)
               Expanded(
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: TvTheme.tvSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: _inputFocusNode.hasFocus
-                          ? TvTheme.biliBlue
-                          : Colors.white12,
-                      width: 1.5,
-                    ),
-                  ),
+                child: DpadFocusable(
+                  autofocus: true,
+                  excludeChildFocus: false,
+                  onSelect: _openKeyboard,
+                  builder: (context, state, child) {
+                    final isFocused = state.focused || _inputFocusNode.hasFocus;
+                    return Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: TvTheme.tvSurface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isFocused ? TvTheme.biliBlue : Colors.white12,
+                          width: isFocused ? 2.0 : 1.5,
+                        ),
+                        boxShadow: isFocused
+                            ? [
+                                BoxShadow(
+                                  color: TvTheme.biliBlue.withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: child,
+                    );
+                  },
                   child: Row(
                     children: [
                       const Padding(
@@ -95,24 +147,39 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
                         ),
                       ),
                       Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          focusNode: _inputFocusNode,
-                          style: const TextStyle(
-                            color: TvTheme.tvTextPrimary,
-                            fontSize: 16,
-                          ),
-                          textInputAction: TextInputAction.search,
-                          onSubmitted: _submitSearch,
-                          decoration: const InputDecoration(
-                            hintText: '输入关键字搜索视频（按遥控器 OK 打开电视输入法）',
-                            hintStyle: TextStyle(
-                              color: TvTheme.tvTextDisabled,
-                              fontSize: 14,
+                        child: Focus(
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.select ||
+                                  event.logicalKey == LogicalKeyboardKey.enter ||
+                                  event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+                                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
+                                _openKeyboard();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextField(
+                            controller: _searchController,
+                            focusNode: _inputFocusNode,
+                            style: const TextStyle(
+                              color: TvTheme.tvTextPrimary,
+                              fontSize: 16,
                             ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
+                            textInputAction: TextInputAction.search,
+                            onTap: _openKeyboard,
+                            onSubmitted: _submitSearch,
+                            decoration: const InputDecoration(
+                              hintText: '输入关键字搜索视频（按遥控器 OK 打开电视输入法）',
+                              hintStyle: TextStyle(
+                                color: TvTheme.tvTextDisabled,
+                                fontSize: 14,
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
                         ),
                       ),

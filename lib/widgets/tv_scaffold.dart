@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import '../core/constants/app_constants.dart';
 import '../core/theme/tv_theme.dart';
 
-/// TV 页面脚手架，保证 Overscan 防切边安全边距
+/// TV 页面脚手架容器，保证 Overscan 防切边安全边距
+/// 注意：
+/// 1. 外层 TvMainShell 已提供根 Scaffold，此处采用 Container 避免嵌套 Scaffold 造成的焦点作用域孤立隔离
+/// 2. 具备响应式自适应边距：针对常见 540P/720P TV 分辨率收紧间距，释放充足的可用内容区
 class TvScaffold extends StatelessWidget {
   final Widget body;
   final Widget? header;
@@ -19,17 +21,26 @@ class TvScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor ?? TvTheme.tvBackground,
-      body: SafeArea(
+    final size = MediaQuery.of(context).size;
+    final bool isCompact = size.height <= 650;
+
+    final responsivePadding = padding ??
+        EdgeInsets.symmetric(
+          horizontal: isCompact ? 24.0 : 36.0,
+          vertical: isCompact ? 16.0 : 24.0,
+        );
+
+    return Container(
+      color: backgroundColor ?? TvTheme.tvBackground,
+      child: SafeArea(
         child: Padding(
-          padding: padding ?? AppConstants.tvSafePadding,
+          padding: responsivePadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (header != null) ...[
                 header!,
-                const SizedBox(height: 16.0),
+                SizedBox(height: isCompact ? 10.0 : 16.0),
               ],
               Expanded(child: body),
             ],
@@ -39,4 +50,3 @@ class TvScaffold extends StatelessWidget {
     );
   }
 }
-

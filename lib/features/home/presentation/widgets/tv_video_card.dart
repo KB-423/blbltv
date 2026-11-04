@@ -10,22 +10,28 @@ class TvVideoCard extends StatelessWidget {
   final VideoItemModel video;
   final VoidCallback? onPlay;
   final ValueChanged<bool>? onFocusChange;
+  final DpadDirectionCallback? onDirection;
   final bool autofocus;
+  final FocusNode? focusNode;
 
   const TvVideoCard({
     super.key,
     required this.video,
     this.onPlay,
     this.onFocusChange,
+    this.onDirection,
     this.autofocus = false,
+    this.focusNode,
   });
 
   @override
   Widget build(BuildContext context) {
     return DpadFocusable(
+      focusNode: focusNode,
       autofocus: autofocus,
       onSelect: onPlay,
       onFocusChange: onFocusChange,
+      onDirection: onDirection,
       child: Container(
         decoration: BoxDecoration(
           color: TvTheme.tvSurface,

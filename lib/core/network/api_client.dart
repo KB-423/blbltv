@@ -56,6 +56,23 @@ class ApiClient {
     }
   }
 
+  /// 获取指定 URI 下的所有 Cookie
+  Future<List<Cookie>> getCookies(Uri uri) async {
+    await initCookieJar();
+    return await _cookieJar?.loadForRequest(uri) ?? [];
+  }
+
+  /// 获取当前登录用户的 CSRF token (bili_jct)
+  Future<String> getCsrfToken() async {
+    final cookies = await getCookies(Uri.parse(ApiConstants.webBaseUrl));
+    for (final c in cookies) {
+      if (c.name == 'bili_jct') {
+        return c.value;
+      }
+    }
+    return '';
+  }
+
   void _setupInterceptors() {
     _dio.interceptors.add(
       InterceptorsWrapper(

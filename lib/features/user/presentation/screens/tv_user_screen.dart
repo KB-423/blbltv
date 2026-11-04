@@ -13,6 +13,9 @@ import '../widgets/tv_login_panel.dart';
 import '../widgets/tv_user_header.dart';
 
 /// TV 个人中心屏幕
+/// 深度优化大屏性能与显示空间：
+/// 1. 采用单 Tab 按需懒加载，彻底消除一次性并发 3 个重量级列表请求与大图解码引起的电视严重卡顿
+/// 2. 紧凑排版，适配 1080P/720P 等不同 DPI 电视设备的可用空间
 class TvUserScreen extends ConsumerStatefulWidget {
   const TvUserScreen({super.key});
 
@@ -38,7 +41,7 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
         children: [
           Container(
             width: 4,
-            height: 24,
+            height: 22,
             decoration: BoxDecoration(
               color: TvTheme.biliPink,
               borderRadius: BorderRadius.circular(2),
@@ -52,10 +55,10 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
           if (authState.isLoggedIn && authState.user != null) ...[
             const SizedBox(width: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: TvTheme.tvSurfaceLight,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '已登录 · ${authState.user!.uname}',
@@ -90,7 +93,7 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
         // 顶部用户信息栏
         TvUserHeader(user: user),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
 
         // 分类标签栏 (遥控器方向键切换)
         Row(
@@ -99,7 +102,7 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
             final isSelected = _selectedTabIndex == index;
 
             return Padding(
-              padding: const EdgeInsets.only(right: 14),
+              padding: const EdgeInsets.only(right: 12),
               child: DpadFocusable(
                 onSelect: () {
                   setState(() {
@@ -108,32 +111,33 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 9,
+                    horizontal: 16,
+                    vertical: 8,
                   ),
                   decoration: BoxDecoration(
                     color: isSelected ? TvTheme.biliPink : TvTheme.tvSurface,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isSelected
-                          ? TvTheme.biliPink
-                          : TvTheme.tvDivider,
+                      color: isSelected ? TvTheme.biliPink : TvTheme.tvDivider,
                     ),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         tab.icon,
-                        size: 18,
-                        color: isSelected ? Colors.white : TvTheme.tvTextSecondary,
+                        size: 16,
+                        color:
+                            isSelected ? Colors.white : TvTheme.tvTextSecondary,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         tab.label,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : TvTheme.tvTextPrimary,
-                          fontSize: 14,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color:
+                              isSelected ? Colors.white : TvTheme.tvTextPrimary,
+                          fontSize: 13,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.w500,
                         ),
                       ),
                     ],
@@ -144,20 +148,26 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
           }),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
 
-        // 对应分类内容区域
+        // 对应分类内容区域 (单 Tab 按需懒加载，彻底消灭同时加载 3 个 Tab 的严重卡顿)
         Expanded(
-          child: IndexedStack(
-            index: _selectedTabIndex,
-            children: const [
-              TvHistoryTab(),
-              TvFavoritesTab(),
-              TvBangumiTab(),
-            ],
-          ),
+          child: _buildCurrentTab(_selectedTabIndex),
         ),
       ],
     );
+  }
+
+  Widget _buildCurrentTab(int index) {
+    switch (index) {
+      case 0:
+        return const TvHistoryTab();
+      case 1:
+        return const TvFavoritesTab();
+      case 2:
+        return const TvBangumiTab();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

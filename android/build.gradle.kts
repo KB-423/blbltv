@@ -1,7 +1,11 @@
 allprojects {
     repositories {
-        google()
-        mavenCentral()
+        // 阿里云 Google 镜像，对应 google()
+        maven("https://maven.aliyun.com/repository/google")
+        // 阿里云公共镜像，对应 mavenCentral()
+        maven("https://maven.aliyun.com/repository/public")
+        // google()
+        // mavenCentral()
     }
 }
 
