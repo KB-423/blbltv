@@ -89,12 +89,43 @@ class ApiClient {
     );
   }
 
+  /// 检查并获取 Wbi 签名所需的 imgKey 与 subKey
+  Future<void> ensureWbiKeys() async {
+    final imgKey = _storageService.wbiImgKey;
+    final subKey = _storageService.wbiSubKey;
+    if (imgKey != null && imgKey.isNotEmpty && subKey != null && subKey.isNotEmpty) {
+      return;
+    }
+
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(ApiConstants.navUserInfo);
+      final data = res.data;
+      if (data != null && data['data'] != null && data['data']['wbi_img'] != null) {
+        final wbiImg = data['data']['wbi_img'];
+        final String imgUrl = wbiImg['img_url'] ?? '';
+        final String subUrl = wbiImg['sub_url'] ?? '';
+
+        if (imgUrl.isNotEmpty && subUrl.isNotEmpty) {
+          final String extractedImgKey =
+              imgUrl.substring(imgUrl.lastIndexOf('/') + 1).split('.')[0];
+          final String extractedSubKey =
+              subUrl.substring(subUrl.lastIndexOf('/') + 1).split('.')[0];
+          await _storageService.saveWbiKeys(extractedImgKey, extractedSubKey);
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiClient] 获取 Wbi 密钥失败: $e');
+    }
+  }
+
   /// 带有 Wbi 签名的 GET 请求
   Future<Response<T>> getWbi<T>(
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) async {
+    await ensureWbiKeys();
+
     final imgKey = _storageService.wbiImgKey ?? '';
     final subKey = _storageService.wbiSubKey ?? '';
 
@@ -148,4 +179,3 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   final storage = ref.watch(storageServiceProvider);
   return ApiClient(storage);
 });
-

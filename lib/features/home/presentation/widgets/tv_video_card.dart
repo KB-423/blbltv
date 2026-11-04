@@ -9,12 +9,14 @@ import '../../../../widgets/tv_image.dart';
 class TvVideoCard extends StatelessWidget {
   final VideoItemModel video;
   final VoidCallback? onPlay;
+  final ValueChanged<bool>? onFocusChange;
   final bool autofocus;
 
   const TvVideoCard({
     super.key,
     required this.video,
     this.onPlay,
+    this.onFocusChange,
     this.autofocus = false,
   });
 
@@ -23,6 +25,7 @@ class TvVideoCard extends StatelessWidget {
     return DpadFocusable(
       autofocus: autofocus,
       onSelect: onPlay,
+      onFocusChange: onFocusChange,
       child: Container(
         decoration: BoxDecoration(
           color: TvTheme.tvSurface,
@@ -32,7 +35,7 @@ class TvVideoCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 封面图 + 时长徽章
+            // 封面图 + 时长徽章 + 推荐标签
             AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(
@@ -59,6 +62,30 @@ class TvVideoCard extends StatelessWidget {
                             color: Colors.white,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                  // 推荐理由徽章 (如: 热门精选)
+                  if (video.rcmdReason != null && video.rcmdReason!.isNotEmpty)
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: TvTheme.biliPink.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          video.rcmdReason!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),

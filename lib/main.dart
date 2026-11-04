@@ -33,7 +33,24 @@ class BiliTvApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: TvTheme.darkTheme,
       routerConfig: router,
-      builder: Dpad.wrap(),
+      builder: Dpad.wrap(
+        theme: const DpadThemeData(
+          effects: [
+            DpadScaleEffect(scale: 1.05),
+            DpadBorderEffect(
+              color: TvTheme.tvFocusBorder,
+              width: 2.5,
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+            ),
+            DpadGlowEffect(
+              color: TvTheme.tvFocusGlow,
+              blurRadius: 16.0,
+            ),
+          ],
+          scrollPadding: 48.0,
+          scrollDuration: Duration(milliseconds: 220),
+        ),
+      ),
     );
   }
 }
