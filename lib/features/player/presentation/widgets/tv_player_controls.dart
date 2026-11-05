@@ -213,6 +213,12 @@ class TvPlayerControls extends StatelessWidget {
                   child: DpadRegion(
                     horizontalEdge: DpadEdgeBehavior.stop,
                     verticalEdge: DpadEdgeBehavior.stop,
+                    onEdge: (direction) {
+                      // 向上按键：切回主视频组件
+                      if (direction == TraversalDirection.up) {
+                        onFocusVideo?.call();
+                      }
+                    },
                     child: Row(
                       children: [
                         // 1. 播放/暂停

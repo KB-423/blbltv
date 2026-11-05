@@ -40,7 +40,8 @@ class TvPlayerScreen extends ConsumerStatefulWidget {
   ConsumerState<TvPlayerScreen> createState() => _TvPlayerScreenState();
 }
 
-class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen> {
+class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
+    with WidgetsBindingObserver {
   // 播放器主体专属 FocusNode
   final FocusNode _videoFocusNode = FocusNode(debugLabel: 'TvVideoPlayer');
 
@@ -56,9 +57,16 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen> {
   DateTime? _seekStartTime;
   int _accumulatedSeekSeconds = 0;
 
+  // 返回键防抖时间戳，防止遥控器单次点击在 onKeyEvent 与 PopScope 间重复分发
+  DateTime? _lastBackTime;
+
+  PlayerNotifier? _playerNotifier;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _playerNotifier = ref.read(playerProvider(widget.bvid).notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _videoFocusNode.requestFocus();
@@ -68,13 +76,34 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _longPressSeekTimer?.cancel();
     _videoFocusNode.dispose();
     _playPauseFocusNode.dispose();
     _qualityFocusNode.dispose();
     // 退出界面组件树卸载时，主动显式停止并销毁播放器，彻底解决退出后声音残留
-    ref.read(playerProvider(widget.bvid).notifier).disposePlayer();
+    _playerNotifier?.disposePlayer();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final notifier = ref.read(playerProvider(widget.bvid).notifier);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      // 当 TV 熄屏、切换信号源或转入后台时，主动暂停、存盘并上报进度，掐断后台播放
+      notifier.player?.pause();
+      notifier.saveCurrentProgress();
+      notifier.reportHistoryHeartbeat();
+    } else if (state == AppLifecycleState.resumed) {
+      // 重新回到前台，恢复遥控器焦点
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _videoFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   void _handleBack(
@@ -82,6 +111,14 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen> {
     dynamic playerState,
     dynamic notifier,
   ) {
+    // 350ms 防抖保护：彻底过滤物理按键与 PopScope 重复触发导致退出界面的问题
+    final now = DateTime.now();
+    if (_lastBackTime != null &&
+        now.difference(_lastBackTime!).inMilliseconds < 350) {
+      return;
+    }
+    _lastBackTime = now;
+
     if (playerState.showQualityPanel) {
       notifier.closeQualityPanel();
     } else if (playerState.showControls) {

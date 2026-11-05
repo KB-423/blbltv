@@ -67,8 +67,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
     _hideControlsTimer?.cancel();
     _saveHistoryTimer?.cancel();
     _heartbeatTimer?.cancel();
-    _saveCurrentProgress();
-    _reportHistoryHeartbeat();
+    saveCurrentProgress();
+    reportHistoryHeartbeat();
     _cancelSubscriptions();
 
     final p = _player;
@@ -85,22 +85,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
     }
   }
 
-  /// 向 B 站官方上报播放心跳进度，确保视频进入云端观看历史
-  void _reportHistoryHeartbeat() {
-    if (state.bvid.isNotEmpty && state.cid > 0) {
-      final playedSec =
-          _player?.state.position.inSeconds ?? state.position.inSeconds;
-      _repository.reportHeartbeat(
-        bvid: state.bvid,
-        cid: state.cid,
-        playedTime: playedSec,
-        duration: state.duration.inSeconds,
-      );
-    }
-  }
-
   /// 保存当前视频播放进度
-  void _saveCurrentProgress() {
+  void saveCurrentProgress() {
     final p = _player;
     if (p == null) return;
     final pos = p.state.position;
@@ -113,6 +99,20 @@ class PlayerNotifier extends Notifier<PlayerState> {
       } else {
         ref.read(storageServiceProvider).saveVideoProgress(bvid, pos.inSeconds);
       }
+    }
+  }
+
+  /// 向 B 站官方上报播放心跳进度，确保视频进入云端观看历史
+  void reportHistoryHeartbeat() {
+    if (state.bvid.isNotEmpty && state.cid > 0) {
+      final playedSec =
+          _player?.state.position.inSeconds ?? state.position.inSeconds;
+      _repository.reportHeartbeat(
+        bvid: state.bvid,
+        cid: state.cid,
+        playedTime: playedSec,
+        duration: state.duration.inSeconds,
+      );
     }
   }
 
@@ -229,6 +229,15 @@ class PlayerNotifier extends Notifier<PlayerState> {
       await platform?.setProperty('network-timeout', '10');
       await platform?.setProperty('force-seekable', 'yes');
 
+      // 0.1 强制设置硬解驱动，杜绝 Android TV 误走 CPU 软解
+      // 在 Android 上使用 mediacodec 直通硬解码，绕过 media_kit 内部针对模拟器的软解降级逻辑
+      if (Platform.isAndroid) {
+        await platform?.setProperty('hwdec', 'mediacodec');
+        await platform?.setProperty('hwdec-codecs', 'all');
+      } else {
+        await platform?.setProperty('hwdec', 'auto');
+      }
+
       // 1. Android 电视平台专用音频驱动配置与音画严格同步 (A/V Sync)
       // 设置 ao 为 audiotrack 优先、opensles 兜底，彻底解决部分芯片静音问题
       if (Platform.isAndroid) {
@@ -249,17 +258,13 @@ class PlayerNotifier extends Notifier<PlayerState> {
         return;
       }
 
-      // 2. HDR 专属色彩空间映射策略
-      // 只有在当前画质为 HDR (125) 且屏幕为 SDR 时启动色调映射，普通画质 (4K/1080P) 杜绝强制转换
-      if (targetQn == 125) {
-        await platform?.setProperty('target-trc', 'bt.709');
-        await platform?.setProperty('target-prim', 'bt.709');
-        await platform?.setProperty('tone-mapping', 'bt.2446a');
-      } else {
-        await platform?.setProperty('target-trc', 'auto');
-        await platform?.setProperty('target-prim', 'auto');
-        await platform?.setProperty('tone-mapping', 'auto');
-      }
+      // 2. 原生 HDR 硬件直通与色彩空间提示配置
+      // 严禁主动进行 HDR 转 SDR 色调映射；设置 target-colorspace-hint 与 auto 色彩传递，
+      // 让底层解码器 (MediaCodec / D3D11) 与显示驱动/电视屏幕原生触发 HDR10 / 杜比视界硬件渲染
+      await platform?.setProperty('target-colorspace-hint', 'yes');
+      await platform?.setProperty('target-trc', 'auto');
+      await platform?.setProperty('target-prim', 'auto');
+      await platform?.setProperty('tone-mapping', 'auto');
 
       // 3. 配置 DASH 独立音轨 (解决声音缺失核心痛点)
       // 关键 1: 必须为 audioUrl 预先注册附带 Referer 防盗链的 Media 缓存，否则 B 站 CDN 返回 403 静音
@@ -286,7 +291,14 @@ class PlayerNotifier extends Notifier<PlayerState> {
         return;
       }
 
-      final videoController = VideoController(player);
+      final videoController = VideoController(
+        player,
+        configuration: VideoControllerConfiguration(
+          enableHardwareAcceleration: true,
+          hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
+          androidAttachSurfaceAfterVideoParameters: false,
+        ),
+      );
 
       bool isWaitingInitialSeek = startPosition > Duration.zero;
 
@@ -363,16 +375,16 @@ class PlayerNotifier extends Notifier<PlayerState> {
         // 启动每 5 秒定期持久化本地播放进度的定时器
         _saveHistoryTimer = Timer.periodic(const Duration(seconds: 5), (_) {
           if (!_isDisposed) {
-            _saveCurrentProgress();
+            saveCurrentProgress();
           }
         });
 
         // 启动每 15 秒向 B 站官方上报播放心跳进度的定时器，确保视频写入云端历史记录
         _heartbeatTimer?.cancel();
-        _reportHistoryHeartbeat();
+        reportHistoryHeartbeat();
         _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
           if (!_isDisposed) {
-            _reportHistoryHeartbeat();
+            reportHistoryHeartbeat();
           }
         });
       }

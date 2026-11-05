@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
-import '../../../../core/storage/storage_service.dart';
+import '../../../../core/services/display_capability_service.dart';
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../models/video/play_url_model.dart';
 import '../../../user/presentation/providers/auth_provider.dart';
@@ -101,11 +101,10 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final storage = ref.watch(storageServiceProvider);
+    final displayCapability = ref.watch(displayCapabilityProvider);
 
     final bool isLoggedIn = authState.isLoggedIn && authState.user != null;
     final bool isVip = authState.user?.vipStatus == 1;
-    final bool isHdrEnabled = storage.isHdrEnabled;
 
     return FocusScope(
       autofocus: true,
@@ -113,10 +112,9 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
         focusNode: _panelFocusNode,
         onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {
-            // 遥控器返回键或向左键：退出画质面板并归还焦点
-            if (event.logicalKey == LogicalKeyboardKey.escape ||
-                event.logicalKey == LogicalKeyboardKey.goBack ||
-                event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            // 遥控器向左键或 Esc：退出画质面板并交接焦点回控制栏
+            if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                event.logicalKey == LogicalKeyboardKey.escape) {
               widget.onClose();
               return KeyEventResult.handled;
             }
@@ -209,6 +207,12 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
                 child: DpadRegion(
                   verticalEdge: DpadEdgeBehavior.stop,
                   horizontalEdge: DpadEdgeBehavior.stop,
+                  onEdge: (direction) {
+                    // 当在画质列表内按左键触碰边缘时，顺畅退出面板并交接回控制栏
+                    if (direction == TraversalDirection.left) {
+                      widget.onClose();
+                    }
+                  },
                   child: ListView.separated(
                     itemCount: widget.qualities.length,
                     separatorBuilder: (context, index) =>
@@ -218,11 +222,18 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
                       final isCurrent = item.qn == widget.currentQn;
                       final focusNode = _qualityFocusNodes[item.qn];
 
-                      // 1. 设备 HDR / 杜比视界支持判断
-                      final bool isHdrItem =
-                          item.qn == 125 || item.qn == 126;
-                      final bool isDeviceSupported =
-                          !isHdrItem || isHdrEnabled;
+                      // 1. 设备硬件 HDR / 杜比视界支持判断
+                      final bool isDolbyItem = item.qn == 126;
+                      final bool isHdr10Item = item.qn == 125;
+                      final bool isHdrItem = isDolbyItem || isHdr10Item;
+
+                      bool isDeviceSupported = true;
+                      if (isDolbyItem) {
+                        isDeviceSupported = displayCapability.hasDolbyVision;
+                      } else if (isHdr10Item) {
+                        isDeviceSupported = displayCapability.hasHdr10 ||
+                            displayCapability.isHdrSupported;
+                      }
 
                       // 2. 账号登录与大会员权限判断
                       bool isAuthPermitted = true;
@@ -231,7 +242,8 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
 
                       if (!isDeviceSupported) {
                         lockBadge = '设备不支持';
-                        lockReason = '当前设备或系统未开启 HDR 输出支持';
+                        lockReason =
+                            '当前设备或显示屏不支持 ${isDolbyItem ? "杜比视界" : "HDR10"} 硬件渲染';
                       } else if (!isLoggedIn && item.qn >= 80) {
                         isAuthPermitted = false;
                         lockBadge = '需登录';

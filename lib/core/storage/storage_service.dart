@@ -32,10 +32,16 @@ class StorageService {
   Future<bool> setPreferredQuality(int qn) =>
       _prefs.setInt('key_preferred_qn', qn);
 
-  // 设备 HDR 输出能力开关 (默认 false 置灰，避免非 HDR 显示器画面发灰发暗)
+  // 设备 HDR 输出能力开关 (历史留存配置)
   bool get isHdrEnabled => _prefs.getBool('key_enable_hdr') ?? false;
   Future<bool> setHdrEnabled(bool val) =>
       _prefs.setBool('key_enable_hdr', val);
+
+  // 开发者调试：在电脑开发端模拟 HDR 硬件支持 (方便在不支持 HDR 的 PC/模拟器上测试 HDR 片源与画质面板)
+  bool get debugSimulateHdrSupport =>
+      _prefs.getBool('key_debug_simulate_hdr') ?? false;
+  Future<bool> setDebugSimulateHdrSupport(bool val) =>
+      _prefs.setBool('key_debug_simulate_hdr', val);
 
   // 视频播放历史进度 (以 bvid 为 key 保存播放秒数)
   int getVideoProgress(String bvid) =>

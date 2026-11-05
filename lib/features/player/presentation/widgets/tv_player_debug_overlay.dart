@@ -144,20 +144,23 @@ class _TvPlayerDebugOverlayState extends State<TvPlayerDebugOverlay> {
     }
 
     // 4. 统计丢帧总数与实时丢帧速率
+    // MPV 正确的丢帧属性为 decoder-frame-drop-count（解码阶段丢帧）与 frame-drop-count（VO呈现阶段丢帧）
     int dropped = 0;
     try {
-      final dropStr = (await platform?.getProperty(
-                'drop-frame-count',
+      final decDropStr = (await platform?.getProperty(
+                'decoder-frame-drop-count',
                 waitForInitialization: false,
               ))
               ?.toString() ??
-          (await platform?.getProperty(
+          '0';
+      final voDropStr = (await platform?.getProperty(
                 'frame-drop-count',
                 waitForInitialization: false,
               ))
               ?.toString() ??
           '0';
-      dropped = int.tryParse(dropStr) ?? 0;
+      dropped =
+          (int.tryParse(decDropStr) ?? 0) + (int.tryParse(voDropStr) ?? 0);
     } catch (_) {}
 
     final now = DateTime.now();
@@ -183,22 +186,35 @@ class _TvPlayerDebugOverlayState extends State<TvPlayerDebugOverlay> {
                   waitForInitialization: false,
                 ))
                 ?.toString() ??
-            (await platform?.getProperty(
-                  'estimated-vf-fps',
-                  waitForInitialization: false,
-                ))
-                ?.toString() ??
             '';
         sourceFps = double.tryParse(fpsStr) ?? 0.0;
       } catch (_) {}
     }
     if (sourceFps <= 0.0) sourceFps = 60.0;
 
-    // 核心算法：真实有效渲染帧率 (Actual Rendered FPS) = 标称帧率 - 每秒丢帧增量
-    double actualRenderedFps =
-        sourceFps - (elapsedSec > 0 ? (dropDelta / elapsedSec) : 0.0);
+    // 核心算法：真实有效渲染帧率 (Actual Rendered FPS)
+    // 优先读取 MPV 内部视频滤镜实时输出帧率 estimated-vf-fps（当软解卡死或掉帧时该值会真实下跌）
+    double actualRenderedFps = 0.0;
+    try {
+      final evfStr = (await platform?.getProperty(
+                'estimated-vf-fps',
+                waitForInitialization: false,
+              ))
+              ?.toString() ??
+          '';
+      final evf = double.tryParse(evfStr);
+      if (evf != null && evf > 0.0) {
+        actualRenderedFps = evf;
+      }
+    } catch (_) {}
+
+    if (actualRenderedFps <= 0.0 && state.playing) {
+      // 备用计算：标称帧率扣除实时丢帧速率
+      actualRenderedFps =
+          sourceFps - (elapsedSec > 0 ? (dropDelta / elapsedSec) : 0.0);
+    }
     if (actualRenderedFps < 0.0) actualRenderedFps = 0.0;
-    if (actualRenderedFps > sourceFps) actualRenderedFps = sourceFps;
+    if (actualRenderedFps > sourceFps + 1.0) actualRenderedFps = sourceFps;
     if (!state.playing) actualRenderedFps = 0.0;
 
     // 6. 画面分辨率 (优先从 state/videoParams 获取)
@@ -213,12 +229,15 @@ class _TvPlayerDebugOverlayState extends State<TvPlayerDebugOverlay> {
     final String colormatrix = videoParams.colormatrix ?? '';
     final String gamma = videoParams.gamma ?? '';
     final String pixFmt = videoParams.pixelformat ?? '';
+    final String primaries = videoParams.primaries ?? '';
 
-    // 判断片源是否为 HDR (qn 125 或具备 BT.2020/PQ/HLG/10-bit 特征)
+    // 判断片源是否为 HDR (qn 125/126 或具备 BT.2020/PQ/HLG/10-bit 特征)
     final bool isHdrSource = widget.qn == 125 ||
+        widget.qn == 126 ||
         gamma.toLowerCase().contains('pq') ||
         gamma.toLowerCase().contains('hlg') ||
         colormatrix.toLowerCase().contains('2020') ||
+        primaries.toLowerCase().contains('2020') ||
         pixFmt.toLowerCase().contains('10') ||
         pixFmt.toLowerCase().contains('p010');
 
@@ -228,13 +247,18 @@ class _TvPlayerDebugOverlayState extends State<TvPlayerDebugOverlay> {
     if (isHdrSource) {
       final matrixDesc =
           colormatrix.isNotEmpty ? colormatrix.toUpperCase() : 'BT.2020';
-      final gammaDesc = gamma.isNotEmpty ? gamma.toUpperCase() : 'PQ';
+      final gammaDesc = gamma.isNotEmpty
+          ? gamma.toUpperCase()
+          : (widget.qn == 126 ? 'Dolby Vision' : 'PQ');
       sourceColor = 'HDR10 ($matrixDesc / $gammaDesc 10-bit)';
-      // 当选择 HDR 画质在 SDR 屏幕上播放时，呈现 Tone-Mapping 转换状态
-      renderMode = 'Tone-Mapping -> SDR (防色彩泛白)';
+
+      // 输出渲染模式 (已开启 target-colorspace-hint 硬件直通)
+      renderMode = '${widget.qn == 126 ? "杜比视界" : "HDR10"} 硬件直通 (Passthrough)';
     } else {
-      sourceColor = 'SDR (Rec.709 8-bit)';
-      renderMode = 'SDR 原生直通';
+      final matrixDesc =
+          colormatrix.isNotEmpty ? colormatrix.toUpperCase() : 'Rec.709';
+      sourceColor = 'SDR ($matrixDesc 8-bit)';
+      renderMode = 'SDR 原生直通 (Rec.709)';
     }
 
     // 8. 瞬时码率

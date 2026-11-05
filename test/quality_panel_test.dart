@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dpad/dpad.dart';
+import 'package:bili_tv/core/services/display_capability_service.dart';
 import 'package:bili_tv/core/storage/storage_service.dart';
 import 'package:bili_tv/models/user/user_info_model.dart';
 import 'package:bili_tv/models/video/play_url_model.dart';
@@ -79,7 +80,7 @@ void main() {
     await tester.tap(find.text('HDR 真彩'));
     await tester.pump();
     expect(selectedQn, 0);
-    expect(find.textContaining('当前设备或系统未开启 HDR'), findsOneWidget);
+    expect(find.textContaining('当前设备或显示屏不支持'), findsOneWidget);
 
     // 点击可用画质 720P，正常切换
     await tester.tap(find.text('720P 高清'));
@@ -148,5 +149,68 @@ void main() {
     await tester.tap(find.text('1080P 高清'));
     await tester.pump();
     expect(selectedQn, 80);
+  });
+
+  testWidgets(
+      'TvQualityPanel allows HDR selection when display supports HDR and user is VIP',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(prefs);
+
+    int selectedQn = 0;
+
+    final vipUser = const UserInfoModel(
+      mid: 10002,
+      uname: '大会员用户',
+      isLogin: true,
+      vipStatus: 1,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storageServiceProvider.overrideWithValue(storage),
+          displayCapabilityProvider.overrideWithValue(
+            const DisplayHdrCapability(
+              isHdrSupported: true,
+              hasHdr10: true,
+            ),
+          ),
+          authProvider.overrideWith(
+            () => _FakeAuthNotifier(
+              AuthState(isLoggedIn: true, user: vipUser),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          builder: Dpad.wrap(),
+          home: Scaffold(
+            body: TvQualityPanel(
+              qualities: qualities,
+              currentQn: 64,
+              onSelectQuality: (qn) => selectedQn = qn,
+              onClose: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 设备支持 HDR 且用户为 VIP，HDR 既无 [设备不支持] 也无 [大会员] 锁标
+    expect(find.text('设备不支持'), findsNothing);
+    expect(find.text('大会员'), findsNothing);
+
+    // 点击 HDR 真彩，成功选中并返回 125
+    await tester.tap(find.text('HDR 真彩'));
+    await tester.pump();
+    expect(selectedQn, 125);
   });
 }

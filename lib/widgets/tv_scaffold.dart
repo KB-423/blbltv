@@ -30,7 +30,7 @@ class TvScaffold extends StatelessWidget {
           vertical: isCompact ? 16.0 : 24.0,
         );
 
-    return Container(
+    return Material(
       color: backgroundColor ?? TvTheme.tvBackground,
       child: SafeArea(
         child: Padding(

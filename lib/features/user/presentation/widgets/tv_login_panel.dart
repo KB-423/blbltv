@@ -18,22 +18,25 @@ class TvLoginPanel extends ConsumerStatefulWidget {
 }
 
 class _TvLoginPanelState extends ConsumerState<TvLoginPanel> {
+  AuthNotifier? _authNotifier;
+
   @override
   void initState() {
     super.initState();
+    _authNotifier = ref.read(authProvider.notifier);
     // 仅在打开登录界面且未拉取过有效二维码时按需发起请求
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = ref.read(authProvider);
       if (!auth.isLoggedIn && (auth.qrUrl.isEmpty || auth.isQrExpired)) {
-        ref.read(authProvider.notifier).startQrLogin();
+        _authNotifier?.startQrLogin();
       }
     });
   }
 
   @override
   void dispose() {
-    // 离开登录界面时停止后台无谓轮询
-    ref.read(authProvider.notifier).stopPolling();
+    // 离开登录界面时停止后台无谓轮询，杜绝使用 unmounted ref
+    _authNotifier?.stopPolling();
     super.dispose();
   }
 

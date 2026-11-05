@@ -174,21 +174,30 @@ class PlayerRepository {
 
     if (matchedTracks.isEmpty) return null;
 
-    // 评分机制：优先保障硬件解码流畅度
+    // 评分机制：优先保障硬件解码流畅度与电视 SOC 硬解兼容性
+    // 优先级策略：HEVC (codecid: 12 / hvc1 / hev1 / dvh1) > AVC (codecid: 7 / avc1) > AV1 (codecid: 13 / av01)
     int getCodecScore(Map<String, dynamic> track) {
       final codecid = track['codecid'] as int? ?? 0;
       final codecs = (track['codecs'] as String? ?? '').toLowerCase();
 
-      // HEVC (H.265) -> 得分最高 (绝大多数芯片具备 4K 60fps 硬解码器)
-      if (codecid == 7 || codecs.contains('hev') || codecs.contains('hvc')) {
+      // 1. HEVC (H.265 / 杜比视界) -> 得分最高 (300分)
+      // B 站 Web DASH 协议中 codecid 12 为 HEVC，绝大多数电视芯片对 4K 60fps HEVC 拥有极高的硬解兼容性
+      if (codecid == 12 ||
+          codecs.startsWith('hev') ||
+          codecs.startsWith('hvc') ||
+          codecs.startsWith('dvh')) {
         return 300;
       }
-      // AVC (H.264) -> 通用硬解
-      if (codecid == 1 || codecs.contains('avc')) {
+      // 2. AVC (H.264) -> 通用标准硬解 (200分)
+      // B 站 Web DASH 协议中 codecid 7 为 AVC
+      if (codecid == 7 || codecid == 1 || codecs.startsWith('avc')) {
         return 200;
       }
-      // AV1 -> 若硬件无 AV1 硬解单元则走 CPU 软解卡顿，放在最后兜底
-      if (codecid == 12 || codecs.contains('av01')) {
+      // 3. AV1 -> 最后兜底 (100分)
+      // B 站 Web DASH 协议中 codecid 13 为 AV1，绝大多数电视芯片无 AV1 硬解模块，走 CPU 软解容易严重掉帧
+      if (codecid == 13 ||
+          codecs.startsWith('av01') ||
+          codecs.startsWith('av1')) {
         return 100;
       }
       return 0;
