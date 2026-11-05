@@ -35,6 +35,7 @@ class ApiConstants {
 
   // 专区端点 (热门、直播、番剧)
   static const String liveList = '$liveBaseUrl/xlive/web-interface/v1/index/getList';
+  static const String livePlayInfo = '$liveBaseUrl/xlive/web-room/v2/index/getRoomPlayInfo';
   static const String bangumiSeasonIndex = '/pgc/season/index/result';
   static const String bangumiSeasonInfo = '/pgc/view/web/season';
 

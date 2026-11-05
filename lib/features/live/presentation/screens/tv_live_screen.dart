@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../router/route_paths.dart';
 import '../../../../widgets/tv_image.dart';
 import '../../../../widgets/tv_scaffold.dart';
 import '../../../../widgets/tv_status_view.dart';
@@ -341,11 +343,9 @@ class _TvLiveCard extends StatelessWidget {
       onDirection: onDirection,
       onFocusChange: onFocusChange,
       onSelect: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已选择直播间: ${room.title} (房间号: ${room.roomId})'),
-            duration: const Duration(seconds: 2),
-          ),
+        context.push(
+          RoutePaths.livePlayerWithRoomId(room.roomId),
+          extra: room,
         );
       },
       builder: (context, state, child) {

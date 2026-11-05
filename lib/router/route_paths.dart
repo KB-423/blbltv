@@ -11,7 +11,9 @@ class RoutePaths {
   static const String user = '/user';
   static const String settings = '/settings';
   static const String player = '/player/:bvid';
+  static const String livePlayer = '/live/player/:roomId';
 
   static String playerWithBvid(String bvid) => '/player/$bvid';
+  static String livePlayerWithRoomId(int roomId) => '/live/player/$roomId';
 }
 

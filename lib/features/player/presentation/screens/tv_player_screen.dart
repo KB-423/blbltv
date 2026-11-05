@@ -123,12 +123,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       notifier.closePartDrawer();
     } else if (playerState.showQualityPanel) {
       notifier.closeQualityPanel();
-    } else if (playerState.showControls) {
-      notifier.toggleControls();
-      _videoFocusNode.requestFocus();
     } else {
       _isExiting = true;
-      notifier.disposePlayer();
       if (context.mounted) {
         context.pop();
       }
@@ -325,8 +321,12 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       }
     });
 
+    // 仅当分P选集抽屉或画质面板激活时拦截返回键；常规播放或控制条显示时直接放行，实现1按即退
+    final canDirectlyPop =
+        !playerState.showPartDrawer && !playerState.showQualityPanel;
+
     return PopScope(
-      canPop: false,
+      canPop: canDirectlyPop,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           _handleBack(context, playerState, notifier);
@@ -523,7 +523,11 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                     );
                   }
                 },
-                onBack: () => _handleBack(context, playerState, notifier),
+                onBack: () {
+                  if (context.mounted) {
+                    context.pop();
+                  }
+                },
               ),
 
             // 7. 侧边弹出式画质选择面板 (独立 FocusScope)

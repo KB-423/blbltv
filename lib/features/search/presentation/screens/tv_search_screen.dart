@@ -1,9 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+import 'package:custom_tv_text_field/custom_tv_text_field.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/tv_theme.dart';
@@ -27,19 +25,18 @@ class TvSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
-  static const MethodChannel _imeChannel = MethodChannel('cloud.kitasaitamablues.bili_tv/ime');
-
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _inputFocusNode = FocusNode();
+  final GlobalKey<CustomTVTextFieldState> _customFieldKey =
+      GlobalKey<CustomTVTextFieldState>();
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _inputFocusNode.addListener(_onFocusChange);
+    _searchController.addListener(_onTextChanged);
   }
 
-  void _onFocusChange() {
+  void _onTextChanged() {
     if (mounted) {
       setState(() {});
     }
@@ -47,35 +44,18 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
 
   @override
   void dispose() {
-    _inputFocusNode.removeListener(_onFocusChange);
+    _searchController.removeListener(_onTextChanged);
     _searchController.dispose();
-    _inputFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   /// 呼出系统软键盘/输入法
   void _openKeyboard() {
-    if (!Platform.isAndroid) return;
-    _inputFocusNode.requestFocus();
-    SystemChannels.textInput.invokeMethod('TextInput.show');
-    try {
-      _imeChannel.invokeMethod('showIme');
-    } catch (_) {}
-  }
-
-  /// 隐藏软键盘
-  void _hideKeyboard() {
-    if (!Platform.isAndroid) return;
-    SystemChannels.textInput.invokeMethod('TextInput.hide');
-    try {
-      _imeChannel.invokeMethod('hideIme');
-    } catch (_) {}
-    _inputFocusNode.unfocus();
+    _customFieldKey.currentState?.openKeyboard();
   }
 
   void _submitSearch(String text) {
-    _hideKeyboard();
     final query = text.trim();
     if (query.isNotEmpty) {
       ref.read(searchProvider.notifier).search(query);
@@ -101,16 +81,73 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
                     style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(width: 24),
 
-              // TV 优化搜索输入框 (使用电视系统自带输入法)
+              // TV 优化搜索输入框 (使用 custom_tv_text_field)
               Expanded(
                 child: DpadFocusable(
                   autofocus: true,
-                  excludeChildFocus: false,
                   onSelect: _openKeyboard,
                   builder: (context, state, child) {
-                    final isFocused = state.focused || _inputFocusNode.hasFocus;
+                    final isFocused = state.focused;
+                    return Container(
+                      decoration: isFocused
+                          ? BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: TvTheme.biliBlue
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 14,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            )
+                          : null,
+                      child: CustomTVTextField(
+                        key: _customFieldKey,
+                        controller: _searchController,
+                        isFocused: isFocused,
+                        hint: '输入关键词搜索全站视频',
+                        textStyle: const TextStyle(
+                          color: TvTheme.tvTextPrimary,
+                          fontSize: 15,
+                        ),
+                        hintStyle: const TextStyle(
+                          color: TvTheme.tvTextDisabled,
+                          fontSize: 13.5,
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          color: TvTheme.tvTextSecondary,
+                          size: 20,
+                        ),
+                        backgroundColor: isFocused
+                            ? TvTheme.tvSurfaceElevated
+                            : TvTheme.tvSurface,
+                        borderColor:
+                            isFocused ? Colors.white : Colors.white12,
+                        focusedBorderColor: Colors.white,
+                        borderRadius: 12,
+                        verticalContentPadding: 12,
+                        horizontalContentPadding: 14,
+                        onFieldSubmitted: _submitSearch,
+                      ),
+                    );
+                  },
+                  child: const SizedBox.shrink(),
+                ),
+              ),
+              if (_searchController.text.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                DpadFocusable(
+                  onSelect: () {
+                    _searchController.clear();
+                    notifier.clear();
+                  },
+                  builder: (context, state, child) {
+                    final isFocused = state.focused;
                     return Container(
                       height: 48,
+                      width: 48,
                       decoration: BoxDecoration(
                         color: isFocused
                             ? TvTheme.tvSurfaceElevated
@@ -120,77 +157,18 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
                           color: isFocused ? Colors.white : Colors.white12,
                           width: isFocused ? 2.0 : 1.0,
                         ),
-                        boxShadow: isFocused
-                            ? [
-                                BoxShadow(
-                                  color: TvTheme.biliBlue.withValues(alpha: 0.35),
-                                  blurRadius: 14,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
                       ),
-                      child: child,
+                      child: Icon(
+                        Icons.close_rounded,
+                        color:
+                            isFocused ? Colors.white : TvTheme.tvTextSecondary,
+                        size: 20,
+                      ),
                     );
                   },
-                  child: Row(
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 14),
-                        child: Icon(Icons.search_rounded, color: TvTheme.tvTextSecondary, size: 20),
-                      ),
-                      Expanded(
-                        child: Focus(
-                          onKeyEvent: (node, event) {
-                            if (event is KeyDownEvent) {
-                              if (event.logicalKey == LogicalKeyboardKey.select ||
-                                  event.logicalKey == LogicalKeyboardKey.enter ||
-                                  event.logicalKey == LogicalKeyboardKey.numpadEnter ||
-                                  event.logicalKey == LogicalKeyboardKey.gameButtonA) {
-                                _openKeyboard();
-                                return KeyEventResult.handled;
-                              }
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _inputFocusNode,
-                            style: const TextStyle(color: TvTheme.tvTextPrimary, fontSize: 15),
-                            textInputAction: TextInputAction.search,
-                            onTap: _openKeyboard,
-                            onSubmitted: _submitSearch,
-                            decoration: const InputDecoration(
-                              hintText: '输入关键词搜索全站视频（遥控器 OK 激活电视输入法）',
-                              hintStyle: TextStyle(color: TvTheme.tvTextDisabled, fontSize: 13.5),
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (_searchController.text.isNotEmpty)
-                        DpadFocusable(
-                          onSelect: () {
-                            _searchController.clear();
-                            notifier.clear();
-                            setState(() {});
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            margin: const EdgeInsets.only(right: 6),
-                            child: const Icon(
-                              Icons.cancel_rounded,
-                              color: TvTheme.tvTextSecondary,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: const SizedBox.shrink(),
                 ),
-              ),
+              ],
               const SizedBox(width: 12),
 
               // 搜索按钮

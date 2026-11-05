@@ -75,6 +75,83 @@ class LiveRepository {
       rethrow;
     }
   }
+
+  /// 获取直播间播放流直链 (优先选取 HLS/fmp4，其次 FLV)
+  Future<String> fetchLivePlayUrl(int roomId, {int? qn}) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.livePlayInfo,
+        queryParameters: {
+          'room_id': roomId,
+          'protocol': '0,1',
+          'format': '0,1,2',
+          'codec': '0,1',
+          'qn': qn ?? 10000,
+          'platform': 'web',
+          'ptype': 8,
+          'dolby': 5,
+          'panorama': 1,
+        },
+      );
+
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['data'] != null) {
+        final playurlInfo = data['data']['playurl_info'];
+        if (playurlInfo != null && playurlInfo['playurl'] != null) {
+          final streamList =
+              playurlInfo['playurl']['stream'] as List<dynamic>? ?? [];
+
+          String? hlsUrl;
+          String? flvUrl;
+
+          for (final stream in streamList) {
+            if (stream is! Map) continue;
+            final protocol = stream['protocol_name']?.toString() ?? '';
+            final formatList = stream['format'] as List<dynamic>? ?? [];
+
+            for (final format in formatList) {
+              if (format is! Map) continue;
+              final formatName = format['format_name']?.toString() ?? '';
+              final codecList = format['codec'] as List<dynamic>? ?? [];
+
+              for (final codec in codecList) {
+                if (codec is! Map) continue;
+                final baseUrl = codec['base_url']?.toString() ?? '';
+                final urlInfoList = codec['url_info'] as List<dynamic>? ?? [];
+
+                if (urlInfoList.isNotEmpty && urlInfoList[0] is Map) {
+                  final urlInfo = urlInfoList[0] as Map;
+                  final host = urlInfo['host']?.toString() ?? '';
+                  final extra = urlInfo['extra']?.toString() ?? '';
+                  final fullUrl = '$host$baseUrl$extra';
+
+                  if (protocol == 'http_hls' ||
+                      formatName == 'fmp4' ||
+                      formatName == 'ts') {
+                    hlsUrl ??= fullUrl;
+                  } else {
+                    flvUrl ??= fullUrl;
+                  }
+                }
+              }
+            }
+          }
+
+          final finalUrl = hlsUrl ?? flvUrl;
+          if (finalUrl != null && finalUrl.isNotEmpty) {
+            return finalUrl;
+          }
+        }
+      }
+
+      throw Exception(
+        data?['message'] ?? '获取直播间播放流失败 (code: ${data?['code']})',
+      );
+    } catch (e) {
+      debugPrint('[LiveRepository] 获取直播流异常: $e');
+      rethrow;
+    }
+  }
 }
 
 final liveRepositoryProvider = Provider<LiveRepository>((ref) {

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../features/bangumi/presentation/screens/tv_bangumi_screen.dart';
 import '../features/home/presentation/screens/tv_home_screen.dart';
+import '../features/live/data/models/live_room_item_model.dart';
+import '../features/live/presentation/screens/tv_live_player_screen.dart';
 import '../features/live/presentation/screens/tv_live_screen.dart';
 import '../features/main/presentation/screens/tv_main_shell.dart';
 import '../features/player/presentation/screens/tv_player_screen.dart';
@@ -92,6 +94,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final bvid = state.pathParameters['bvid'] ?? '';
           return TvPlayerScreen(bvid: bvid);
+        },
+      ),
+
+      // 全屏直播播放器独立路由（脱离侧边栏）
+      GoRoute(
+        path: RoutePaths.livePlayer,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final roomIdStr = state.pathParameters['roomId'] ?? '0';
+          final roomId = int.tryParse(roomIdStr) ?? 0;
+          final room = state.extra as LiveRoomItemModel?;
+          return TvLivePlayerScreen(roomId: roomId, room: room);
         },
       ),
     ],

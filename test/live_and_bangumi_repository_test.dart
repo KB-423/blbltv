@@ -107,6 +107,55 @@ void main() {
       expect(rooms[1].roomId, 10002);
       expect(rooms[1].title, '分区直播间2');
     });
+
+    test('fetchLivePlayUrl parses HLS stream url correctly', () async {
+      apiClient.dio.httpClientAdapter = _MockHttpAdapter((options) async {
+        expect(options.path.contains('/xlive/web-room/v2/index/getRoomPlayInfo'), isTrue);
+        expect(options.queryParameters['room_id'], 2233);
+        final mockData = {
+          'code': 0,
+          'message': '0',
+          'data': {
+            'playurl_info': {
+              'playurl': {
+                'stream': [
+                  {
+                    'protocol_name': 'http_hls',
+                    'format': [
+                      {
+                        'format_name': 'fmp4',
+                        'codec': [
+                          {
+                            'codec_name': 'hevc',
+                            'base_url': '/live-bvc/test_stream.m3u8',
+                            'url_info': [
+                              {
+                                'host': 'https://d1--cn-gotcha01.bilivideo.com',
+                                'extra': '?token=xyz',
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        };
+        return ResponseBody.fromBytes(
+          utf8.encode(jsonEncode(mockData)),
+          200,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      });
+
+      final url = await liveRepository.fetchLivePlayUrl(2233);
+      expect(url, 'https://d1--cn-gotcha01.bilivideo.com/live-bvc/test_stream.m3u8?token=xyz');
+    });
   });
 
   group('BangumiRepository Tests', () {
