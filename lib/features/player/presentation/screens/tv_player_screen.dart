@@ -63,6 +63,9 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   // 退出状态锁，防止并发调用退出
   bool _isExiting = false;
 
+  // 播放器控制器引用（用于退出时安全销毁，严禁在 dispose 中使用 ref.read 导致 Provider 幽灵复活）
+  PlayerNotifier? _playerNotifier;
+
   @override
   void initState() {
     super.initState();
@@ -82,10 +85,10 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     _playPauseFocusNode.dispose();
     _qualityFocusNode.dispose();
     _partBtnFocusNode.dispose();
-    // 退出界面组件树卸载时，主动显式停止并销毁播放器，彻底解决退出后声音残留
-    try {
-      ref.read(playerProvider(widget.bvid).notifier).disposePlayer();
-    } catch (_) {}
+    // 退出界面组件树卸载时，主动停止并销毁播放器实例
+    // 注意：严禁在 dispose() 中执行 ref.read(playerProvider(...))，否则会导致 Riverpod 重新创建全新孤儿实例并在后台无限拉流播放
+    _playerNotifier?.disposePlayer();
+    _playerNotifier = null;
     super.dispose();
   }
 
@@ -125,6 +128,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       notifier.closeQualityPanel();
     } else {
       _isExiting = true;
+      // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音，画面保留最后一帧出栈过渡
+      notifier.pauseAndStopAudio();
       if (context.mounted) {
         context.pop();
       }
@@ -270,6 +275,7 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   Widget build(BuildContext context) {
     final playerState = ref.watch(playerProvider(widget.bvid));
     final notifier = ref.read(playerProvider(widget.bvid).notifier);
+    _playerNotifier = notifier;
     final showDebugOverlay = ref.watch(playerDebugOverlayProvider);
     final videoController = notifier.videoController;
 
@@ -328,9 +334,12 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     return PopScope(
       canPop: canDirectlyPop,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          _handleBack(context, playerState, notifier);
+        if (didPop) {
+          // 已经由系统返回键或手势直接出栈，第 0 毫秒立即掐断音频
+          notifier.pauseAndStopAudio();
+          return;
         }
+        _handleBack(context, playerState, notifier);
       },
       child: Scaffold(
         backgroundColor: Colors.black,
@@ -524,6 +533,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                   }
                 },
                 onBack: () {
+                  // 点击控制栏返回按钮：第 0 毫秒立即掐断音频
+                  notifier.pauseAndStopAudio();
                   if (context.mounted) {
                     context.pop();
                   }

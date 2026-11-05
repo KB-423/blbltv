@@ -60,6 +60,17 @@ class PlayerNotifier extends Notifier<PlayerState> {
     _stopAndDispose();
   }
 
+  /// 瞬间静音并暂停，专用于退出路由触发的第 0 毫秒切断音频
+  void pauseAndStopAudio() {
+    try {
+      final p = _player;
+      if (p != null) {
+        p.setVolume(0);
+        p.pause();
+      }
+    } catch (_) {}
+  }
+
   /// 停止音频与视频输出并销毁 MPV 实例，彻底消除退出界面后声音还在继续的竞态问题
   void _stopAndDispose() {
     if (_isDisposed) return;
@@ -78,6 +89,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
     if (p != null) {
       try {
+        p.setVolume(0);
+        p.pause();
         p.stop(); // 立即掐断音频与视频解码！
         p.dispose();
       } catch (e) {
@@ -227,6 +240,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
         return;
       }
 
+      // 关键：初始锁定暂停状态，严禁底层在未完成音画混合时偷跑音频
+      await platform?.setProperty('pause', 'yes');
+
       // 0. 网络高清流预读与大屏解复用器性能调优
       // 确保在网络通畅时，底层积极向前预读 45 秒音视频数据，彻底杜绝播放卡顿
       await platform?.setProperty('demuxer-readahead-secs', '45');
@@ -292,10 +308,10 @@ class PlayerNotifier extends Notifier<PlayerState> {
             ? audioUrl.replaceAll(';', '\\;')
             : audioUrl.replaceAll(':', '\\:');
         await platform?.setProperty('audio-files', safeAudioUrl);
-        await player.setAudioTrack(AudioTrack.auto());
       }
 
       if (_isDisposed) {
+        player.setVolume(0);
         player.stop();
         player.dispose();
         return;
@@ -349,7 +365,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       _player = player;
       _videoController = videoController;
 
-      // 4. 打开主视频流并指定起始续播位置
+      // 4. 打开主视频流并指定起始续播位置 (使用 play: false 确保音画在 PAUSED 状态下完成解复用和对齐)
       await player.open(
         Media(
           url,
@@ -359,10 +375,11 @@ class PlayerNotifier extends Notifier<PlayerState> {
           },
           start: startPosition > Duration.zero ? startPosition : null,
         ),
-        play: true,
+        play: false,
       );
 
       if (_isDisposed) {
+        player.setVolume(0);
         player.stop();
         player.dispose();
         _player = null;
@@ -372,6 +389,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
       // 音量重设为 100%
       await player.setVolume(100.0);
+
+      // 5. 音画流完全对齐就绪后，正式统一开播！彻底消除声音偷跑与二次从头播放
+      await player.play();
 
       if (!_isDisposed) {
         state = state.copyWith(
