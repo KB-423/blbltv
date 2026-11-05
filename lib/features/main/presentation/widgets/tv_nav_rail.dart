@@ -76,7 +76,12 @@ class TvNavRail extends ConsumerWidget {
 
     return Container(
       width: railWidth,
-      color: TvTheme.tvSurface,
+      decoration: const BoxDecoration(
+        gradient: TvTheme.navRailGradient,
+        border: Border(
+          right: BorderSide(color: TvTheme.tvCardBorder, width: 1.0),
+        ),
+      ),
       padding: EdgeInsets.symmetric(
         horizontal: isCompact ? 10 : 14,
         vertical: isCompact ? 16 : 22,
@@ -87,34 +92,71 @@ class TvNavRail extends ConsumerWidget {
           // App 品牌 Logo
           Padding(
             padding: EdgeInsets.only(
-              left: 6,
+              left: 4,
               bottom: isCompact ? 18 : 26,
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    color: TvTheme.biliPink,
-                    borderRadius: BorderRadius.circular(8),
+                    gradient: TvTheme.biliPinkGradient,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: TvTheme.biliPink.withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(
                     Icons.tv_rounded,
                     color: Colors.white,
-                    size: isCompact ? 19 : 22,
+                    size: isCompact ? 18 : 22,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    'Bili TV',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: isCompact ? 17 : 19,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Bili TV',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 16 : 19,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 1.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: TvTheme.biliBlue.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: TvTheme.biliBlue.withValues(alpha: 0.5),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: const Text(
+                          '4K',
+                          style: TextStyle(
+                            color: TvTheme.biliBlue,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -223,21 +265,73 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
           context.go(widget.item.path);
         }
       },
-      child: Container(
-        height: isCompact ? 44 : 48,
-        padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 14),
-        decoration: BoxDecoration(
-          color: widget.isSelected
-              ? TvTheme.biliPink.withValues(alpha: 0.22)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            if (widget.isUserTab &&
-                widget.isLoggedIn &&
-                widget.avatarUrl.isNotEmpty)
-              ClipOval(
+      builder: (context, state, child) {
+        final bool isFocused = state.focused;
+        final bool isSelected = widget.isSelected;
+
+        Color bgColor = Colors.transparent;
+        Gradient? bgGradient;
+        Border? border;
+        List<BoxShadow>? shadows;
+
+        if (isFocused) {
+          if (isSelected) {
+            bgGradient = TvTheme.biliPinkGradient;
+            shadows = [
+              BoxShadow(
+                color: TvTheme.biliPink.withValues(alpha: 0.45),
+                blurRadius: 14,
+                spreadRadius: 1,
+              ),
+            ];
+          } else {
+            bgColor = Colors.white.withValues(alpha: 0.18);
+            border = Border.all(color: Colors.white, width: 1.5);
+          }
+        } else if (isSelected) {
+          bgColor = TvTheme.biliPink.withValues(alpha: 0.16);
+          border = Border.all(color: TvTheme.biliPink.withValues(alpha: 0.35), width: 1);
+        } else {
+          bgColor = Colors.transparent;
+        }
+
+        return Container(
+          height: isCompact ? 44 : 48,
+          padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12),
+          decoration: BoxDecoration(
+            color: bgGradient == null ? bgColor : null,
+            gradient: bgGradient,
+            borderRadius: BorderRadius.circular(10),
+            border: border,
+            boxShadow: shadows,
+          ),
+          child: child,
+        );
+      },
+      child: Row(
+        children: [
+          if (widget.isSelected)
+            Container(
+              width: 3.5,
+              height: 18,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: TvTheme.biliPink,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          if (widget.isUserTab &&
+              widget.isLoggedIn &&
+              widget.avatarUrl.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: widget.isSelected ? TvTheme.biliPink : Colors.white24,
+                  width: 1.5,
+                ),
+              ),
+              child: ClipOval(
                 child: SizedBox(
                   width: isCompact ? 20 : 22,
                   height: isCompact ? 20 : 22,
@@ -246,33 +340,34 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
                     fit: BoxFit.cover,
                   ),
                 ),
-              )
-            else
-              Icon(
-                widget.item.icon,
-                color: widget.isSelected
-                    ? TvTheme.biliPink
-                    : TvTheme.tvTextSecondary,
-                size: isCompact ? 19 : 21,
               ),
-            SizedBox(width: isCompact ? 10 : 12),
-            Expanded(
-              child: Text(
-                widget.displayTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: widget.isSelected
-                      ? Colors.white
-                      : TvTheme.tvTextSecondary,
-                  fontSize: isCompact ? 13.5 : 15,
-                  fontWeight:
-                      widget.isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+            )
+          else
+            Icon(
+              widget.item.icon,
+              color: widget.isSelected
+                  ? Colors.white
+                  : TvTheme.tvTextSecondary,
+              size: isCompact ? 19 : 21,
+            ),
+          SizedBox(width: isCompact ? 10 : 12),
+          Expanded(
+            child: Text(
+              widget.displayTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: widget.isSelected
+                    ? Colors.white
+                    : TvTheme.tvTextSecondary,
+                fontSize: isCompact ? 13.5 : 15,
+                fontWeight: widget.isSelected
+                    ? FontWeight.w700
+                    : FontWeight.w500,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

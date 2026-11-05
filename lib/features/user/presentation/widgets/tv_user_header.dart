@@ -23,30 +23,56 @@ class TvUserHeader extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       decoration: BoxDecoration(
-        color: TvTheme.tvSurface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: TvTheme.tvDivider),
+        gradient: TvTheme.cardSurfaceGradient,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isVip
+              ? TvTheme.vipGold.withValues(alpha: 0.4)
+              : TvTheme.tvCardBorder,
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          // 用户头像
-          ClipOval(
-            child: SizedBox(
-              width: 58,
-              height: 58,
-              child: user.face.isNotEmpty
-                  ? TvImage(
-                      imageUrl: user.face,
-                      fit: BoxFit.cover,
-                    )
-                  : Container(
-                      color: TvTheme.tvSurfaceLight,
-                      child: const Icon(
-                        Icons.person_rounded,
-                        color: TvTheme.tvTextSecondary,
-                        size: 32,
+          // 用户头像 (带 VIP/粉色尊享光环)
+          Container(
+            padding: const EdgeInsets.all(2.5),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: isVip ? TvTheme.vipGoldGradient : TvTheme.biliPinkGradient,
+              boxShadow: [
+                BoxShadow(
+                  color: (isVip ? TvTheme.vipGold : TvTheme.biliPink)
+                      .withValues(alpha: 0.4),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: SizedBox(
+                width: 58,
+                height: 58,
+                child: user.face.isNotEmpty
+                    ? TvImage(
+                        imageUrl: user.face,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        color: TvTheme.tvSurfaceLight,
+                        child: const Icon(
+                          Icons.person_rounded,
+                          color: TvTheme.tvTextSecondary,
+                          size: 32,
+                        ),
                       ),
-                    ),
+              ),
             ),
           ),
           const SizedBox(width: 18),
@@ -62,7 +88,7 @@ class TvUserHeader extends ConsumerWidget {
                     Text(
                       user.uname.isNotEmpty ? user.uname : '哔哩哔哩用户',
                       style: const TextStyle(
-                        color: TvTheme.tvTextPrimary,
+                        color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -76,7 +102,7 @@ class TvUserHeader extends ConsumerWidget {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.shade800,
+                        color: const Color(0xFFFF5C38),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -84,7 +110,7 @@ class TvUserHeader extends ConsumerWidget {
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 10,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
@@ -98,16 +124,22 @@ class TvUserHeader extends ConsumerWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: TvTheme.biliPink,
+                          gradient: TvTheme.vipGoldGradient,
                           borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: TvTheme.vipGold.withValues(alpha: 0.35),
+                              blurRadius: 6,
+                            ),
+                          ],
                         ),
                         child: Text(
                           user.vipLabelText.isNotEmpty
                               ? user.vipLabelText
-                              : '大会员',
+                              : '年度大会员',
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
+                            color: Color(0xFF4A2800),
+                            fontSize: 10.5,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -115,22 +147,42 @@ class TvUserHeader extends ConsumerWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text(
-                      'UID: ${user.mid}',
-                      style: const TextStyle(
-                        color: TvTheme.tvTextSecondary,
-                        fontSize: 12,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'UID: ${user.mid}',
+                        style: const TextStyle(
+                          color: TvTheme.tvTextSecondary,
+                          fontSize: 11.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '硬币: ${user.money.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        color: TvTheme.tvTextSecondary,
-                        fontSize: 12,
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.monetization_on_rounded, size: 13, color: TvTheme.vipGold),
+                          const SizedBox(width: 4),
+                          Text(
+                            '硬币: ${user.money.toStringAsFixed(1)}',
+                            style: const TextStyle(
+                              color: TvTheme.tvTextSecondary,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -142,31 +194,48 @@ class TvUserHeader extends ConsumerWidget {
           // 退出登录按钮
           DpadFocusable(
             onSelect: () => _confirmLogout(context, ref),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                color: TvTheme.tvSurfaceLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.logout_rounded,
-                    size: 16,
-                    color: TvTheme.tvTextSecondary,
+            builder: (context, state, child) {
+              final isFocused = state.focused;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                decoration: BoxDecoration(
+                  color: isFocused ? Colors.white : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isFocused ? Colors.white : Colors.white12,
+                    width: 1.2,
                   ),
-                  SizedBox(width: 6),
-                  Text(
-                    '退出登录',
-                    style: TextStyle(
-                      color: TvTheme.tvTextSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                  boxShadow: isFocused
+                      ? [
+                          BoxShadow(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            blurRadius: 14,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      size: 15,
+                      color: isFocused ? Colors.black : TvTheme.tvTextSecondary,
                     ),
-                  ),
-                ],
-              ),
-            ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '退出登录',
+                      style: TextStyle(
+                        color: isFocused ? Colors.black : TvTheme.tvTextSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const SizedBox.shrink(),
           ),
         ],
       ),

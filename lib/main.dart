@@ -56,19 +56,20 @@ class BiliTvApp extends ConsumerWidget {
           },
           theme: const DpadThemeData(
             effects: [
-              DpadScaleEffect(scale: 1.05),
+              DpadScaleEffect(scale: 1.04),
               DpadBorderEffect(
-                color: TvTheme.tvFocusBorder,
-                width: 2.5,
-                borderRadius: BorderRadius.all(Radius.circular(10)),
+                color: Colors.white,
+                width: 2.0,
+                borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
               DpadGlowEffect(
-                color: TvTheme.tvFocusGlow,
-                blurRadius: 16.0,
+                color: Color(0x4000AEEC),
+                blurRadius: 20.0,
               ),
             ],
-            scrollPadding: 48.0,
+            scrollPadding: 54.0,
             scrollDuration: Duration(milliseconds: 220),
+            scrollCurve: Curves.easeOutCubic,
           ),
         )(
           context,

@@ -30,20 +30,37 @@ class TvScaffold extends StatelessWidget {
           vertical: isCompact ? 16.0 : 24.0,
         );
 
-    return Material(
-      color: backgroundColor ?? TvTheme.tvBackground,
-      child: SafeArea(
-        child: Padding(
-          padding: responsivePadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (header != null) ...[
-                header!,
-                SizedBox(height: isCompact ? 10.0 : 16.0),
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor ?? TvTheme.tvBackground,
+        gradient: backgroundColor == null
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFF131524),
+                  Color(0xFF0C0D14),
+                  Color(0xFF090A0F),
+                ],
+                stops: [0.0, 0.45, 1.0],
+              )
+            : null,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: SafeArea(
+          child: Padding(
+            padding: responsivePadding,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (header != null) ...[
+                  header!,
+                  SizedBox(height: isCompact ? 10.0 : 16.0),
+                ],
+                Expanded(child: body),
               ],
-              Expanded(child: body),
-            ],
+            ),
           ),
         ),
       ),

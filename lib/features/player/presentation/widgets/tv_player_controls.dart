@@ -192,19 +192,21 @@ class TvPlayerControls extends StatelessWidget {
                 // 操作按钮与时间 (独立横向行)
                 Focus(
                   onKeyEvent: (node, event) {
+                    // 返回键处理：同时捕获并消费 KeyDown 与 KeyUp，彻底防止 Android 产生二次返回
+                    if (event.logicalKey == LogicalKeyboardKey.escape ||
+                        event.logicalKey == LogicalKeyboardKey.goBack) {
+                      if (event is KeyDownEvent) {
+                        onBack();
+                      }
+                      return KeyEventResult.handled;
+                    }
+
                     if (event is KeyDownEvent) {
                       onUserInteraction?.call();
 
                       // 向上方向键：切回主视频组件
                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                         onFocusVideo?.call();
-                        return KeyEventResult.handled;
-                      }
-
-                      // 返回键：收起控制栏并切回主视频组件
-                      if (event.logicalKey == LogicalKeyboardKey.escape ||
-                          event.logicalKey == LogicalKeyboardKey.goBack) {
-                        onBack();
                         return KeyEventResult.handled;
                       }
                     }
@@ -229,20 +231,35 @@ class TvPlayerControls extends StatelessWidget {
                             onUserInteraction?.call();
                             onTogglePlay();
                           },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white12,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: 26,
-                            ),
-                          ),
+                          builder: (context, state, child) {
+                            final isFocused = state.focused;
+                            return Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.4),
+                                          blurRadius: 14,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                isPlaying
+                                    ? Icons.pause_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: isFocused ? Colors.black : Colors.white,
+                                size: 26,
+                              ),
+                            );
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                         const SizedBox(width: 12),
 
@@ -260,18 +277,32 @@ class TvPlayerControls extends StatelessWidget {
                               onSeekBackward();
                             }
                           },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white12,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.replay_10_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
+                          builder: (context, state, child) {
+                            final isFocused = state.focused;
+                            return Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                Icons.replay_10_rounded,
+                                color: isFocused ? Colors.black : Colors.white,
+                                size: 22,
+                              ),
+                            );
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                         const SizedBox(width: 12),
 
@@ -289,18 +320,32 @@ class TvPlayerControls extends StatelessWidget {
                               onSeekForward();
                             }
                           },
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white12,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.forward_10_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
+                          builder: (context, state, child) {
+                            final isFocused = state.focused;
+                            return Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                Icons.forward_10_rounded,
+                                color: isFocused ? Colors.black : Colors.white,
+                                size: 22,
+                              ),
+                            );
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                         const SizedBox(width: 16),
 
@@ -310,7 +355,7 @@ class TvPlayerControls extends StatelessWidget {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
 
@@ -322,46 +367,66 @@ class TvPlayerControls extends StatelessWidget {
                             onUserInteraction?.call();
                             onToggleDebugOverlay();
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: showDebugOverlay
-                                  ? TvTheme.biliPink.withValues(alpha: 0.25)
-                                  : Colors.white12,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: showDebugOverlay
-                                    ? TvTheme.biliPink
-                                    : Colors.transparent,
+                          builder: (context, state, child) {
+                            final isFocused = state.focused;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 9,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.analytics_outlined,
-                                  size: 16,
-                                  color: showDebugOverlay
-                                      ? TvTheme.biliPink
-                                      : Colors.white70,
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? Colors.white
+                                    : (showDebugOverlay
+                                        ? TvTheme.biliPink.withValues(alpha: 0.25)
+                                        : Colors.white.withValues(alpha: 0.12)),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isFocused
+                                      ? Colors.white
+                                      : (showDebugOverlay
+                                          ? TvTheme.biliPink
+                                          : Colors.white12),
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '统计信息',
-                                  style: TextStyle(
-                                    color: showDebugOverlay
-                                        ? TvTheme.biliPink
-                                        : Colors.white70,
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.w500,
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          blurRadius: 12,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.analytics_outlined,
+                                    size: 16,
+                                    color: isFocused
+                                        ? Colors.black
+                                        : (showDebugOverlay
+                                            ? TvTheme.biliPink
+                                            : Colors.white70),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '统计信息',
+                                    style: TextStyle(
+                                      color: isFocused
+                                          ? Colors.black
+                                          : (showDebugOverlay
+                                              ? TvTheme.biliPink
+                                              : Colors.white70),
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                         const SizedBox(width: 12),
 
@@ -372,45 +437,62 @@ class TvPlayerControls extends StatelessWidget {
                             onUserInteraction?.call();
                             onOpenQuality();
                           },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white12,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: TvTheme.tvFocusBorder
-                                    .withValues(alpha: 0.6),
+                          builder: (context, state, child) {
+                            final isFocused = state.focused;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 9,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.high_quality_rounded,
-                                  size: 18,
-                                  color: TvTheme.tvFocusBorder,
+                              decoration: BoxDecoration(
+                                color: isFocused
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isFocused
+                                      ? Colors.white
+                                      : TvTheme.tvFocusBorder.withValues(alpha: 0.6),
+                                  width: 1.2,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  _getCurrentQnDesc(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                                boxShadow: isFocused
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.white.withValues(alpha: 0.4),
+                                          blurRadius: 14,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.high_quality_rounded,
+                                    size: 18,
+                                    color: isFocused ? Colors.black : TvTheme.tvFocusBorder,
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.arrow_drop_down_rounded,
-                                  size: 18,
-                                  color: Colors.white70,
-                                ),
-                              ],
-                            ),
-                          ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _getCurrentQnDesc(),
+                                    style: TextStyle(
+                                      color: isFocused ? Colors.black : Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 18,
+                                    color: isFocused ? Colors.black54 : Colors.white70,
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          child: const SizedBox.shrink(),
                         ),
                       ],
                     ),

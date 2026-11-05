@@ -40,14 +40,35 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
       header: Row(
         children: [
           Container(
-            width: 4,
-            height: 22,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: TvTheme.biliPink,
-              borderRadius: BorderRadius.circular(2),
+              gradient: TvTheme.biliPinkGradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: TvTheme.biliPink.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.person_rounded, size: 15, color: Colors.white),
+                SizedBox(width: 5),
+                Text(
+                  '个人空间',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Text(
             '个人中心',
             style: Theme.of(context).textTheme.headlineMedium,
@@ -55,10 +76,11 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
           if (authState.isLoggedIn && authState.user != null) ...[
             const SizedBox(width: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: TvTheme.tvSurfaceLight,
-                borderRadius: BorderRadius.circular(10),
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white12),
               ),
               child: Text(
                 '已登录 · ${authState.user!.uname}',
@@ -95,9 +117,12 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
 
         const SizedBox(height: 14),
 
-        // 分类标签栏 (遥控器方向键切换)
-        Row(
-          children: List.generate(_tabs.length, (index) {
+        // 分类标签栏 (独立 DpadRegion，防止横向串焦逃逸到上下区域)
+        DpadRegion(
+          horizontalEdge: DpadEdgeBehavior.stop,
+          verticalEdge: DpadEdgeBehavior.leave,
+          child: Row(
+            children: List.generate(_tabs.length, (index) {
             final tab = _tabs[index];
             final isSelected = _selectedTabIndex == index;
 
@@ -109,44 +134,90 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
                     _selectedTabIndex = index;
                   });
                 },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? TvTheme.biliPink : TvTheme.tvSurface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected ? TvTheme.biliPink : TvTheme.tvDivider,
+                builder: (context, state, child) {
+                  final isFocused = state.focused;
+
+                  Color? bgColor;
+                  Gradient? bgGradient;
+                  if (isFocused) {
+                    if (isSelected) {
+                      bgGradient = TvTheme.biliPinkGradient;
+                    } else {
+                      bgColor = Colors.white;
+                    }
+                  } else {
+                    if (isSelected) {
+                      bgGradient = TvTheme.biliPinkGradient;
+                    } else {
+                      bgColor = Colors.white.withValues(alpha: 0.08);
+                    }
+                  }
+
+                  Color textColor;
+                  Color iconColor;
+                  if (isFocused && !isSelected) {
+                    textColor = Colors.black;
+                    iconColor = Colors.black;
+                  } else if (isSelected) {
+                    textColor = Colors.white;
+                    iconColor = Colors.white;
+                  } else {
+                    textColor = TvTheme.tvTextSecondary;
+                    iconColor = TvTheme.tvTextSecondary;
+                  }
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 9,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        tab.icon,
-                        size: 16,
-                        color:
-                            isSelected ? Colors.white : TvTheme.tvTextSecondary,
+                    decoration: BoxDecoration(
+                      color: bgGradient == null ? bgColor : null,
+                      gradient: bgGradient,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isFocused
+                            ? Colors.white
+                            : (isSelected ? Colors.transparent : Colors.white12),
+                        width: 1.2,
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        tab.label,
-                        style: TextStyle(
-                          color:
-                              isSelected ? Colors.white : TvTheme.tvTextPrimary,
-                          fontSize: 13,
-                          fontWeight:
-                              isSelected ? FontWeight.bold : FontWeight.w500,
+                      boxShadow: isFocused
+                          ? [
+                              BoxShadow(
+                                color: (isSelected ? TvTheme.biliPink : Colors.white)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          tab.icon,
+                          size: 16,
+                          color: iconColor,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                        const SizedBox(width: 7),
+                        Text(
+                          tab.label,
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 13.5,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const SizedBox.shrink(),
               ),
             );
           }),
         ),
+      ),
 
         const SizedBox(height: 6),
 

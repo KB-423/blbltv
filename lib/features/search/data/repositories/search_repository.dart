@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -10,14 +11,36 @@ class SearchRepository {
 
   SearchRepository(this._apiClient);
 
+  /// 安全解析可能是 String 或 Map 的接口响应数据
+  Map<String, dynamic>? _parseResponseMap(dynamic rawData) {
+    if (rawData == null) return null;
+    if (rawData is Map<String, dynamic>) {
+      return rawData;
+    }
+    if (rawData is Map) {
+      return rawData.cast<String, dynamic>();
+    }
+    if (rawData is String) {
+      try {
+        final decoded = jsonDecode(rawData);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        } else if (decoded is Map) {
+          return decoded.cast<String, dynamic>();
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
   /// 获取实时热搜关键词列表
   Future<List<String>> fetchHotSearchWords() async {
     try {
-      final res = await _apiClient.dio.get<Map<String, dynamic>>(
+      final res = await _apiClient.get(
         ApiConstants.hotSearchList,
       );
 
-      final data = res.data;
+      final data = _parseResponseMap(res.data);
       if (data != null && data['code'] == 0 && data['list'] != null) {
         final List<dynamic> list = data['list'];
         return list
@@ -48,7 +71,7 @@ class SearchRepository {
     String order = 'totalrank',
   }) async {
     try {
-      final res = await _apiClient.getWbi<Map<String, dynamic>>(
+      final res = await _apiClient.getWbi(
         ApiConstants.searchByType,
         queryParameters: {
           'search_type': 'video',
@@ -58,7 +81,7 @@ class SearchRepository {
         },
       );
 
-      final data = res.data;
+      final data = _parseResponseMap(res.data);
       if (data != null && data['code'] == 0 && data['data'] != null) {
         final searchData = data['data'] as Map<String, dynamic>;
         final int numPages = searchData['numPages'] as int? ?? 0;

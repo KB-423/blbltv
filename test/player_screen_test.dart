@@ -96,5 +96,12 @@ void main() {
     // 验证触发了画质切换并且画质面板关闭
     expect(fakeNotifier.changedQn, 64);
     expect(find.text('画质选择'), findsNothing);
+
+    // 触发系统返回键：优先关闭控制栏，绝不跳过控制栏直接退出播放器
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(fakeNotifier.state.showControls, false);
   });
 }

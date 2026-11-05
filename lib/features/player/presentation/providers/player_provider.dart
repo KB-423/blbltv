@@ -229,10 +229,10 @@ class PlayerNotifier extends Notifier<PlayerState> {
       await platform?.setProperty('network-timeout', '10');
       await platform?.setProperty('force-seekable', 'yes');
 
-      // 0.1 强制设置硬解驱动，杜绝 Android TV 误走 CPU 软解
-      // 在 Android 上使用 mediacodec 直通硬解码，绕过 media_kit 内部针对模拟器的软解降级逻辑
+      // 0.1 设置硬件解码驱动策略
+      // 使用 auto-safe 调度：在 Android TV 真机上自动命中 mediacodec 硬解；在模拟器上安全回退软解，避免黑屏
       if (Platform.isAndroid) {
-        await platform?.setProperty('hwdec', 'mediacodec');
+        await platform?.setProperty('hwdec', 'auto-safe');
         await platform?.setProperty('hwdec-codecs', 'all');
       } else {
         await platform?.setProperty('hwdec', 'auto');
@@ -259,9 +259,11 @@ class PlayerNotifier extends Notifier<PlayerState> {
       }
 
       // 2. 原生 HDR 硬件直通与色彩空间提示配置
-      // 严禁主动进行 HDR 转 SDR 色调映射；设置 target-colorspace-hint 与 auto 色彩传递，
-      // 让底层解码器 (MediaCodec / D3D11) 与显示驱动/电视屏幕原生触发 HDR10 / 杜比视界硬件渲染
-      await platform?.setProperty('target-colorspace-hint', 'yes');
+      // 注意：target-colorspace-hint 在 Windows (D3D11) 与 Wayland 下向系统传递 HDR 元数据；
+      // 在 Android 上开启会导致 EGL context 初始化失败并抛出 error 0x3004 (EGL_BAD_ATTRIBUTE) 导致画面黑屏，故不在 Android 设置
+      if (!Platform.isAndroid) {
+        await platform?.setProperty('target-colorspace-hint', 'yes');
+      }
       await platform?.setProperty('target-trc', 'auto');
       await platform?.setProperty('target-prim', 'auto');
       await platform?.setProperty('tone-mapping', 'auto');
@@ -295,7 +297,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
         player,
         configuration: VideoControllerConfiguration(
           enableHardwareAcceleration: true,
-          hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
+          hwdec: Platform.isAndroid ? 'auto-safe' : 'auto',
           androidAttachSurfaceAfterVideoParameters: false,
         ),
       );

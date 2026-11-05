@@ -76,14 +76,35 @@ class _TvSettingsScreenState extends ConsumerState<TvSettingsScreen> {
       header: Row(
         children: [
           Container(
-            width: 4,
-            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: TvTheme.biliBlue,
-              borderRadius: BorderRadius.circular(2),
+              gradient: TvTheme.biliBlueGradient,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: TvTheme.biliBlue.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.tune_rounded, size: 15, color: Colors.white),
+                SizedBox(width: 5),
+                Text(
+                  '首选项',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Text(
             '系统与播放设置',
             style: Theme.of(context).textTheme.headlineMedium,
@@ -217,64 +238,96 @@ class _TvSettingsScreenState extends ConsumerState<TvSettingsScreen> {
   }) {
     return DpadFocusable(
       onSelect: onSelect,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-        decoration: BoxDecoration(
-          color: TvTheme.tvSurface,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 26, color: TvTheme.biliBlue),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: TvTheme.tvTextPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: TvTheme.tvTextSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
+      builder: (context, state, child) {
+        final isFocused = state.focused;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: TvTheme.cardSurfaceGradient,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isFocused ? Colors.white : TvTheme.tvCardBorder,
+              width: isFocused ? 2.0 : 1.0,
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+            boxShadow: isFocused
+                ? [
+                    BoxShadow(
+                      color: TvTheme.biliBlue.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isFocused
+                      ? TvTheme.biliBlue.withValues(alpha: 0.25)
+                      : Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 24, color: isFocused ? Colors.white : TvTheme.biliBlue),
               ),
-              child: Text(
-                badge,
-                style: TextStyle(
-                  color: badgeColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: TvTheme.tvTextSecondary,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: TvTheme.tvTextDisabled,
-              size: 24,
-            ),
-          ],
-        ),
-      ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: badgeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: badgeColor.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(
+                    color: badgeColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isFocused ? Colors.white : TvTheme.tvTextDisabled,
+                size: 24,
+              ),
+            ],
+          ),
+        );
+      },
+      child: const SizedBox.shrink(),
     );
   }
 }

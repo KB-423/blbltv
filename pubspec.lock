@@ -185,6 +185,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.5"
+  custom_tv_text_field:
+    dependency: "direct main"
+    description:
+      name: custom_tv_text_field
+      sha256: "524c4ee9a6c130587e4f8eec8b96f9df3d94cb41dc1e7def3ea52b5020b6d4e6"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.9"
   dart_style:
     dependency: transitive
     description:

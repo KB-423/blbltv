@@ -32,140 +32,227 @@ class TvVideoCard extends StatelessWidget {
       onSelect: onPlay,
       onFocusChange: onFocusChange,
       onDirection: onDirection,
-      child: Container(
-        decoration: BoxDecoration(
-          color: TvTheme.tvSurface,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 封面图 + 时长徽章 + 推荐标签
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Stack(
-                fit: StackFit.expand,
+      builder: (context, state, child) {
+        final isFocused = state.focused;
+        return Container(
+          decoration: BoxDecoration(
+            gradient: TvTheme.cardSurfaceGradient,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isFocused ? Colors.white : TvTheme.tvCardBorder,
+              width: isFocused ? 2.0 : 1.0,
+            ),
+            boxShadow: isFocused
+                ? [
+                    BoxShadow(
+                      color: TvTheme.biliBlue.withValues(alpha: 0.4),
+                      blurRadius: 20,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: child,
+        );
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 封面图 + 时长徽章 + 推荐标签 + 播放量浮层
+          AspectRatio(
+            aspectRatio: 16 / 9,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                TvNetworkImage(imageUrl: video.pic),
+
+                // 底部暗色渐变遮罩 (确保白色数据文字在任何背景封面下清晰可见)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.2),
+                          Colors.black.withValues(alpha: 0.85),
+                        ],
+                        stops: const [0.4, 0.7, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 推荐理由徽章 (如: 热门精选、8K超清)
+                if (video.rcmdReason != null && video.rcmdReason!.isNotEmpty)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: TvTheme.biliPinkGradient,
+                        borderRadius: BorderRadius.circular(5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        video.rcmdReason!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // 封面底部数据浮层 (播放量、弹幕数与时长)
+                Positioned(
+                  left: 8,
+                  right: 8,
+                  bottom: 6,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // 播放量与弹幕
+                      Row(
+                        children: [
+                          if (video.stat != null) ...[
+                            const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 15,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              Formatters.formatCount(video.stat!.view),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (video.stat!.danmaku > 0) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.subtitles_rounded,
+                                size: 12,
+                                color: Colors.white70,
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                Formatters.formatCount(video.stat!.danmaku),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+
+                      // 时长标签
+                      if (video.duration > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            Formatters.formatDuration(video.duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 标题与 UP 主信息
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TvNetworkImage(imageUrl: video.pic),
-                  // 时长标签
-                  if (video.duration > 0)
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                  // 标题 (最多 2 行)
+                  Expanded(
+                    child: Text(
+                      video.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: TvTheme.tvTextPrimary,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // UP 主信息
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.75),
-                          borderRadius: BorderRadius.circular(4),
+                          color: Colors.white10,
+                          borderRadius: BorderRadius.circular(3),
                         ),
+                        child: const Icon(
+                          Icons.person_rounded,
+                          size: 12,
+                          color: TvTheme.tvTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
                         child: Text(
-                          Formatters.formatDuration(video.duration),
+                          video.owner?.name ?? '未知UP主',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: TvTheme.tvTextSecondary,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                       ),
-                    ),
-                  // 推荐理由徽章 (如: 热门精选)
-                  if (video.rcmdReason != null && video.rcmdReason!.isNotEmpty)
-                    Positioned(
-                      left: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: TvTheme.biliPink.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          video.rcmdReason!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
+                    ],
+                  ),
                 ],
               ),
             ),
-
-            // 标题与 UP 主信息
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 标题 (最多 2 行)
-                    Expanded(
-                      child: Text(
-                        video.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: TvTheme.tvTextPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.3,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    // UP 主 & 播放量
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.person_outline_rounded,
-                          size: 14,
-                          color: TvTheme.tvTextSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            video.owner?.name ?? '未知UP主',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: TvTheme.tvTextSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        if (video.stat != null) ...[
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.play_arrow_outlined,
-                            size: 14,
-                            color: TvTheme.tvTextSecondary,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            Formatters.formatCount(video.stat!.view),
-                            style: const TextStyle(
-                              color: TvTheme.tvTextSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

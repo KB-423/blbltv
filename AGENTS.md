@@ -48,26 +48,44 @@ MaterialApp.router(
 )
 ```
 
-### 2.2 可聚焦组件规范
-所有需要被遥控器落焦与点击的组件，**一律使用 `DpadFocusable` 包裹**：
+### 2.2 可聚焦组件与区域管理规范
+所有需要被遥控器落焦与点击的组件，**一律使用 `DpadFocusable` 包裹**；每个独立的内容模块与结构区块，**必须使用 `DpadRegion` 包裹**：
 
 ```dart
 import 'package:dpad/dpad.dart';
 
-DpadFocusable(
-  autofocus: true, // 可选：进入页面默认落焦
-  onSelect: () {   // 遥控器 OK / 确定键响应
-    context.push('/player/BVxxxx');
-  },
-  child: VideoCard(video),
+DpadRegion(
+  enter: DpadEnterBehavior.restore, // 区域切出切回时保持焦点记忆
+  horizontalEdge: DpadEdgeBehavior.stop, // 阻止左右意外逃逸跨界
+  verticalEdge: DpadEdgeBehavior.leave,
+  child: DpadFocusable(
+    autofocus: true, // 可选：进入页面默认落焦
+    onSelect: () {   // 遥控器 OK / 确定键响应
+      context.push('/player/BVxxxx');
+    },
+    child: VideoCard(video),
+  ),
 )
 ```
 
 - **按键响应**：确定事件使用 `onSelect`，长按（如呼出菜单）使用 `onLongSelect`。
-- **区域管理**：列表或网格使用 `DpadRegion` 保持焦点记忆（`DpadEnterBehavior`）。
 - **动效与主题**：高亮边框、缩放与阴影优先使用 `dpad` 自带的 `DpadTheme` 与 `DpadEffect` 机制。
 
-### 2.3 动态浮层销毁与焦点自愈机制 (Focus Self-Healing)
+### 2.3 区域隔离与嵌套防串焦规范 (DpadRegion Nesting & Boundaries)
+* **根因与问题**：Flutter 系统默认的几何方向寻焦（`DirectionalFocusTraversalPolicy`）会寻找物理空间最近的组件。当上下两个不同结构（如上方的顶部操作工具栏与下方的多列视频网格）并排存在时，若未作区域隔离，在顶部按左右方向键会意外“斜向走焦”直接串到下方的卡片网格中，严重破坏大屏空间心智模型。
+* **架构规范**：
+  1. **各独立内容区域必须使用 `DpadRegion` 包裹**（如侧边导轨区、顶部工具栏区、中间内容网格区、底部操作区分离）；
+  2. **不同层级与业务结构必须进行 `DpadRegion` 嵌套包裹**，通过配置 `horizontalEdge: DpadEdgeBehavior.stop` 或 `verticalEdge: DpadEdgeBehavior.leave` 明确边界流转规则，**坚决杜绝上下的内容在按左右键时意外横跨走过去**；
+  3. 任何需要遥控器响应的内容单元必须包裹 `DpadFocusable`，杜绝任何未受纳管的裸聚焦或手写 FocusNode 绕过机制。
+
+### 2.4 初始焦点默认定向准则 (Default Initial Focus Traversal)
+为了保证大屏开屏、切屏与弹窗时遥控器落点的确定性与一致性：
+1. **水平方向默认最左侧为初始落焦点**：所有横向排布的 Tab 栏、工具按钮组、横向筛选列表，默认将第 0 项（最左）设为默认或首项进入焦点；
+2. **垂直方向默认最顶部为初始落焦点**：所有纵向列表、多列卡片网格、设置页列表，默认将第 0 行/首项卡片作为默认进入焦点；
+3. **播放器页面以视频画面本身为初始焦点**：全屏播放器进入时，必须默认将第一焦点锚定在全屏视频画面容器（`_videoFocusNode`），用户按确定键或方向键时才唤起浮层控制栏并进行焦点交接；退出控制栏时立即自愈抓回视频画面；
+4. **弹窗与浮层同理**：画质面板、选集抽屉等进入时，默认落焦在当前正在生效的选项（或第 0 项），收起时严密回交原宿主节点。
+
+### 2.5 动态浮层销毁与焦点自愈机制 (Focus Self-Healing)
 * **根因**：TV 场景下当弹出浮层（如播放器控制栏、画质选择面板）自动超时隐藏或卸载（unmount）时，原本处于浮层内部的焦点会被 Flutter 系统直接释放为 `null`，导致页面无法再接收任何按键事件（如返回键失效、快进快退失效）。
 * **规范**：
   1. 页面全屏根容器必须持有一个专属且固定的 `FocusNode`（如 `_playerFocusNode`）；
@@ -82,11 +100,11 @@ DpadFocusable(
      });
      ```
 
-### 2.4 TV 文本输入框与软键盘调起规范
+### 2.6 TV 文本输入框与软键盘调起规范
 * **遥控器按键映射**：遥控器 OK 键发送的是 `LogicalKeyboardKey.select`（Android `KEYCODE_DPAD_CENTER`），Flutter `TextField` 默认只监听 `Enter`。输入框必须包裹在 `DpadFocusable(excludeChildFocus: false)` 中，并在 `Focus(onKeyEvent: ...)` 与 `onTap` 中统一拦截 `select`、`enter`、`gameButtonA` 触发输入法。
 * **物理键盘策略穿透 (`SHOW_FORCED`)**：当大屏外接遥控器或物理设备时，Android 默认判定有物理键盘并隐藏虚拟软键盘（`show_ime_with_hard_keyboard = 0`）。必须在原生 `MainActivity.kt` 开辟 MethodChannel，配合 `InputMethodManager.SHOW_FORCED` 强制调起系统输入法。
 
-### 2.5 平板/PC 调试虚拟遥控器规范 (`TvDebugRemoteOverlay`)
+### 2.7 平板/PC 调试虚拟遥控器规范 (`TvDebugRemoteOverlay`)
 * **运行隔离**：严格通过 `if (!kDebugMode) return widget.child;` 隔离，Release 构建零开销且完全不可见；
 * **焦点隔离 (`ExcludeFocus`)**：虚拟遥控器整体容器必须使用 `ExcludeFocus(excluding: true)` 包裹，**彻底杜绝触控点击遥控器时夺走或清除主界面中正在落焦的 TV 组件焦点**；
 * **禁止重复位移 (消除“跳两下”)**：
@@ -244,6 +262,8 @@ lib/
 Agent 在每次提交代码变更或完成任务前，必须执行以下自检：
 
 - [ ] **不要自己写 tvfocus**：是否全部采用 `dpad` (`DpadFocusable`、`DpadRegion`、`Dpad.wrap()`)？
+- [ ] **DpadRegion 嵌套与边界隔离**：各内容区域是否包裹 DpadRegion？上下不同结构是否嵌套隔离并配置边界行为，杜绝左右键意外串焦？
+- [ ] **初始焦点默认定向**：水平方向是否默认最左为首焦，垂直方向默认最上为首焦，播放器进入是否默认以视频画面为首焦？
 - [ ] **浮层焦点自愈**：播放器控制栏或弹窗浮层收起后，是否已通过 `ref.listen` 及时将焦点抓回根节点，杜绝焦点丢失？
 - [ ] **按键时序纯粹性**：虚拟遥控器是否已包裹 `ExcludeFocus`？方向键是否仅通过单一硬件按键事件分发，杜绝一次点击位移两次？
 - [ ] **播放器退出彻底**：退出播放器是否已调用 `player.stop()` 并安全 `dispose()`，杜绝声音继续残留？

@@ -27,8 +27,7 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   final ScrollController _scrollController = ScrollController();
-  final FocusNode _firstCardFocusNode =
-      FocusNode(debugLabel: 'HomeFirstCardFocus');
+  final FocusNode _firstCardFocusNode = FocusNode(debugLabel: 'HomeFirstCardFocus');
   bool _hasInitialFocused = false;
 
   @override
@@ -85,45 +84,57 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // 左侧：标题与批次信息 / 个性化标识
+          // 左侧：精致标题与用户个性化标识
           Row(
             children: [
               Container(
-                width: 4,
-                height: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: TvTheme.biliPink,
-                  borderRadius: BorderRadius.circular(2),
+                  gradient: TvTheme.biliPinkGradient,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: TvTheme.biliPink.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 15, color: Colors.white),
+                    SizedBox(width: 5),
+                    Text(
+                      '精彩推荐',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Text(
-                '推荐视频',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
+              const SizedBox(width: 14),
+              Text('推荐视频', style: Theme.of(context).textTheme.headlineMedium),
               if (authState.isLoggedIn && authState.user != null) ...[
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: TvTheme.biliPink.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: TvTheme.biliPink.withValues(alpha: 0.35),
-                    ),
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.white12),
                   ),
                   child: Row(
                     children: [
-                      const Icon(
-                        Icons.auto_awesome_rounded,
-                        size: 13,
-                        color: TvTheme.biliPink,
-                      ),
+                      const Icon(Icons.person_rounded, size: 13, color: TvTheme.biliPinkLight),
                       const SizedBox(width: 5),
                       Text(
-                        '个性化推荐 · ${authState.user!.uname}',
+                        authState.user!.uname,
                         style: const TextStyle(
-                          color: TvTheme.biliPink,
+                          color: TvTheme.tvTextPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -132,31 +143,16 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                   ),
                 ),
               ],
-              if (feedState.videos.isNotEmpty) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: TvTheme.tvSurfaceLight,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '第 ${feedState.freshIdx} 批 · 已加载 ${feedState.videos.length} 条',
-                    style: const TextStyle(
-                      color: TvTheme.tvTextSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
 
-          // 右侧：大屏遥控器操作工具栏 (刷新/换一批、返回顶部)
-          Row(
-            children: [
-              // “换一批”按钮 (对应电视的刷新操作，向左时切回左侧导轨)
+          // 右侧：大屏遥控器操作工具栏 (独立 DpadRegion 区域隔离，横向停止逃逸，竖向受控交接)
+          DpadRegion(
+            horizontalEdge: DpadEdgeBehavior.stop,
+            verticalEdge: DpadEdgeBehavior.leave,
+            child: Row(
+              children: [
+                // “换一批”按钮 (对应电视的刷新操作，向左时切回左侧导轨)
               DpadFocusable(
                 onDirection: (direction) {
                   if (direction == TraversalDirection.left) {
@@ -165,78 +161,114 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                   return false;
                 },
                 onSelect: () => ref.read(homeFeedProvider.notifier).refresh(),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: TvTheme.tvSurface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      if (feedState.isRefreshing)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              TvTheme.biliPink,
-                            ),
-                          ),
-                        )
-                      else
-                        const Icon(
-                          Icons.refresh_rounded,
-                          size: 18,
-                          color: TvTheme.tvTextPrimary,
-                        ),
-                      const SizedBox(width: 8),
-                      Text(
-                        feedState.isRefreshing ? '正在刷新...' : '换一批',
-                        style: const TextStyle(
-                          color: TvTheme.tvTextPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
+                builder: (context, state, child) {
+                  final isFocused = state.focused;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isFocused ? Colors.white : Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isFocused ? Colors.white : Colors.white12,
+                        width: 1.2,
                       ),
-                    ],
-                  ),
-                ),
+                      boxShadow: isFocused
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        if (feedState.isRefreshing)
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                isFocused ? Colors.black : TvTheme.biliPink,
+                              ),
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.refresh_rounded,
+                            size: 17,
+                            color: isFocused ? Colors.black : Colors.white,
+                          ),
+                        const SizedBox(width: 6),
+                        Text(
+                          feedState.isRefreshing ? '正在刷新...' : '换一批',
+                          style: TextStyle(
+                            color: isFocused ? Colors.black : Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const SizedBox.shrink(),
               ),
               const SizedBox(width: 12),
 
               // “返回顶部”按钮
               DpadFocusable(
                 onSelect: _scrollToTop,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: TvTheme.tvSurface,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.vertical_align_top_rounded,
-                        size: 18,
-                        color: TvTheme.tvTextSecondary,
+                builder: (context, state, child) {
+                  final isFocused = state.focused;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isFocused ? Colors.white : Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isFocused ? Colors.white : Colors.white12,
+                        width: 1.2,
                       ),
-                      SizedBox(width: 6),
-                      Text(
-                        '顶部',
-                        style: TextStyle(
-                          color: TvTheme.tvTextSecondary,
-                          fontSize: 14,
+                      boxShadow: isFocused
+                          ? [
+                              BoxShadow(
+                                color: Colors.white.withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                spreadRadius: 1,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.vertical_align_top_rounded,
+                          size: 17,
+                          color: isFocused ? Colors.black : TvTheme.tvTextSecondary,
                         ),
-                      ),
-                    ],
-                  ),
-                ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '顶部',
+                          style: TextStyle(
+                            color: isFocused ? Colors.black : TvTheme.tvTextSecondary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                child: const SizedBox.shrink(),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
+    ),
       body: _buildBody(feedState),
     );
   }
@@ -258,16 +290,9 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.inbox_rounded,
-              size: 56,
-              color: TvTheme.tvTextDisabled,
-            ),
+            const Icon(Icons.inbox_rounded, size: 56, color: TvTheme.tvTextDisabled),
             const SizedBox(height: 12),
-            const Text(
-              '暂无推荐内容',
-              style: TextStyle(color: TvTheme.tvTextSecondary, fontSize: 16),
-            ),
+            const Text('暂无推荐内容', style: TextStyle(color: TvTheme.tvTextSecondary, fontSize: 16)),
             const SizedBox(height: 16),
             DpadFocusable(
               autofocus: true,
@@ -310,41 +335,36 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 crossAxisSpacing: 18,
                 mainAxisSpacing: 18,
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final video = videos[index];
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final video = videos[index];
 
-                  return TvVideoCard(
-                    video: video,
-                    autofocus: index == 0,
-                    focusNode: index == 0 ? _firstCardFocusNode : null,
-                    onDirection: (direction) {
-                      // 位于每行最左列 (第 0 列) 时按左方向键，平滑切回左侧导轨
-                      if (direction == TraversalDirection.left && index % 4 == 0) {
-                        return ref.read(navRailFocusServiceProvider).focusSelected();
-                      }
-                      return false;
-                    },
-                    onFocusChange: (focused) {
-                      // TV 触底/上拉加载逻辑：当焦点移动至倒数一行 (最后 4 个) 且获得焦点时，自动无缝加载下一页
-                      if (focused && index >= videos.length - 4) {
-                        ref.read(homeFeedProvider.notifier).loadMore();
-                      }
-                    },
-                    onPlay: () {
-                      context.push(RoutePaths.playerWithBvid(video.bvid));
-                    },
-                  );
-                },
-                childCount: videos.length,
-              ),
+                return TvVideoCard(
+                  video: video,
+                  autofocus: index == 0,
+                  focusNode: index == 0 ? _firstCardFocusNode : null,
+                  onDirection: (direction) {
+                    // 位于每行最左列 (第 0 列) 时按左方向键，平滑切回左侧导轨
+                    if (direction == TraversalDirection.left && index % 4 == 0) {
+                      return ref.read(navRailFocusServiceProvider).focusSelected();
+                    }
+                    return false;
+                  },
+                  onFocusChange: (focused) {
+                    // TV 触底/上拉加载逻辑：当焦点移动至倒数一行 (最后 4 个) 且获得焦点时，自动无缝加载下一页
+                    if (focused && index >= videos.length - 4) {
+                      ref.read(homeFeedProvider.notifier).loadMore();
+                    }
+                  },
+                  onPlay: () {
+                    context.push(RoutePaths.playerWithBvid(video.bvid));
+                  },
+                );
+              }, childCount: videos.length),
             ),
           ),
 
           // 底部追加加载指示器与错误重试卡片
-          SliverToBoxAdapter(
-            child: _buildBottomStatus(feedState),
-          ),
+          SliverToBoxAdapter(child: _buildBottomStatus(feedState)),
         ],
       ),
     );
@@ -366,13 +386,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               ),
             ),
             SizedBox(width: 12),
-            Text(
-              '正在加载更多精彩视频...',
-              style: TextStyle(
-                color: TvTheme.tvTextSecondary,
-                fontSize: 14,
-              ),
-            ),
+            Text('正在加载更多精彩视频...', style: TextStyle(color: TvTheme.tvTextSecondary, fontSize: 14)),
           ],
         ),
       );
@@ -416,10 +430,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(
-          child: Text(
-            '—— 已经到底啦 ——',
-            style: TextStyle(color: TvTheme.tvTextDisabled, fontSize: 13),
-          ),
+          child: Text('—— 已经到底啦 ——', style: TextStyle(color: TvTheme.tvTextDisabled, fontSize: 13)),
         ),
       );
     }

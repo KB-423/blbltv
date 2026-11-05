@@ -111,13 +111,14 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
       child: Focus(
         focusNode: _panelFocusNode,
         onKeyEvent: (node, event) {
-          if (event is KeyDownEvent) {
-            // 遥控器向左键或 Esc：退出画质面板并交接焦点回控制栏
-            if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                event.logicalKey == LogicalKeyboardKey.escape) {
+          // 遥控器向左键、Esc 或返回键：退出画质面板并交接焦点回控制栏
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+              event.logicalKey == LogicalKeyboardKey.escape ||
+              event.logicalKey == LogicalKeyboardKey.goBack) {
+            if (event is KeyDownEvent) {
               widget.onClose();
-              return KeyEventResult.handled;
             }
+            return KeyEventResult.handled;
           }
           return KeyEventResult.ignored;
         },

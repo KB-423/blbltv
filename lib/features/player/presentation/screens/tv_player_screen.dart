@@ -57,8 +57,9 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   DateTime? _seekStartTime;
   int _accumulatedSeekSeconds = 0;
 
-  // 返回键防抖时间戳，防止遥控器单次点击在 onKeyEvent 与 PopScope 间重复分发
+  // 返回键防抖时间戳与退出状态锁，防止遥控器单次点击在 onKeyEvent 与 PopScope 间重复分发
   DateTime? _lastBackTime;
+  bool _isExiting = false;
 
   PlayerNotifier? _playerNotifier;
 
@@ -111,6 +112,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     dynamic playerState,
     dynamic notifier,
   ) {
+    if (_isExiting) return;
+
     // 350ms 防抖保护：彻底过滤物理按键与 PopScope 重复触发导致退出界面的问题
     final now = DateTime.now();
     if (_lastBackTime != null &&
@@ -125,6 +128,7 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       notifier.toggleControls();
       _videoFocusNode.requestFocus();
     } else {
+      _isExiting = true;
       notifier.disposePlayer();
       if (context.mounted) {
         context.pop();
@@ -220,11 +224,14 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // 3. 遥控器返回键：退出播放器
-    if (event is KeyDownEvent &&
-        (event.logicalKey == LogicalKeyboardKey.escape ||
-            event.logicalKey == LogicalKeyboardKey.goBack)) {
-      _handleBack(context, state, notifier);
+    // 3. 遥控器与键盘返回键处理：
+    // 必须在 KeyDownEvent 时触发 _handleBack()，并且在 KeyUpEvent 时同样返回 handled！
+    // 关键机制：同时拦截 KeyDown 与 KeyUp，彻底防止 Android 原生 onKeyUp(KEYCODE_BACK) 重复派发系统 onBackPressed() 导致连跳两次
+    if (event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack) {
+      if (event is KeyDownEvent) {
+        _handleBack(context, state, notifier);
+      }
       return KeyEventResult.handled;
     }
 

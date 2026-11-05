@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -104,6 +105,19 @@ class ApiClient {
           return handler.next(options);
         },
         onResponse: (response, handler) async {
+          // 容错处理：部分 B 站接口（如 s.search.bilibili.com/main/hotword）
+          // 在响应头中缺失 Content-Type: application/json，导致 Dio 默认保留为 String 而非 Map。
+          // 在此自动尝试将 JSON 字符串反序列化，确保上层泛型转换与业务逻辑稳定。
+          if (response.data is String) {
+            final str = (response.data as String).trim();
+            if ((str.startsWith('{') && str.endsWith('}')) ||
+                (str.startsWith('[') && str.endsWith(']'))) {
+              try {
+                response.data = jsonDecode(str);
+              } catch (_) {}
+            }
+          }
+
           await initCookieJar();
 
           // 保存 Cookie
