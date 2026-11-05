@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/theme/tv_theme.dart';
+import '../../../../core/utils/back_navigation_debounce.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../providers/player_provider.dart';
@@ -59,17 +60,13 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   DateTime? _seekStartTime;
   int _accumulatedSeekSeconds = 0;
 
-  // 返回键防抖时间戳与退出状态锁，防止遥控器单次点击在 onKeyEvent 与 PopScope 间重复分发
-  DateTime? _lastBackTime;
+  // 退出状态锁，防止并发调用退出
   bool _isExiting = false;
-
-  PlayerNotifier? _playerNotifier;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _playerNotifier = ref.read(playerProvider(widget.bvid).notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _videoFocusNode.requestFocus();
@@ -86,7 +83,9 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     _qualityFocusNode.dispose();
     _partBtnFocusNode.dispose();
     // 退出界面组件树卸载时，主动显式停止并销毁播放器，彻底解决退出后声音残留
-    _playerNotifier?.disposePlayer();
+    try {
+      ref.read(playerProvider(widget.bvid).notifier).disposePlayer();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -117,13 +116,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   ) {
     if (_isExiting) return;
 
-    // 350ms 防抖保护：彻底过滤物理按键与 PopScope 重复触发导致退出界面的问题
-    final now = DateTime.now();
-    if (_lastBackTime != null &&
-        now.difference(_lastBackTime!).inMilliseconds < 350) {
-      return;
-    }
-    _lastBackTime = now;
+    // 全局防抖锁拦截：若 400ms 内已消费过返回事件，坚决丢弃，杜绝连退
+    if (!BackNavigationDebounce.shouldHandle()) return;
 
     if (playerState.showPartDrawer) {
       notifier.closePartDrawer();
@@ -229,11 +223,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       return KeyEventResult.handled;
     }
 
-    // 3. 遥控器与键盘返回键处理：
-    // 必须在 KeyDownEvent 时触发 _handleBack()，并且在 KeyUpEvent 时同样返回 handled！
-    // 关键机制：同时拦截 KeyDown 与 KeyUp，彻底防止 Android 原生 onKeyUp(KEYCODE_BACK) 重复派发系统 onBackPressed() 导致连跳两次
-    if (event.logicalKey == LogicalKeyboardKey.escape ||
-        event.logicalKey == LogicalKeyboardKey.goBack) {
+    // 3. 键盘 Escape 返回处理 (Android 遥控器与物理返回键已由全局 PopScope 统一纳管，绝不在 onKeyEvent 重复触发导致连退)
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
       if (event is KeyDownEvent) {
         _handleBack(context, state, notifier);
       }

@@ -36,6 +36,7 @@ class ApiConstants {
   // 专区端点 (热门、直播、番剧)
   static const String liveList = '$liveBaseUrl/xlive/web-interface/v1/index/getList';
   static const String bangumiSeasonIndex = '/pgc/season/index/result';
+  static const String bangumiSeasonInfo = '/pgc/view/web/season';
 
   // 登录与认证 (TV 扫码流)
   static const String qrcodeGenerate =

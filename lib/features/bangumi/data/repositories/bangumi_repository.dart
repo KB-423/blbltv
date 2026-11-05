@@ -45,6 +45,30 @@ class BangumiRepository {
       rethrow;
     }
   }
+
+  /// 获取番剧季度明细 (解析剧集列表与第一集 bvid，用于一键起播)
+  Future<Map<String, dynamic>> fetchSeasonDetail(int seasonId) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.bangumiSeasonInfo,
+        queryParameters: {
+          'season_id': seasonId,
+        },
+      );
+
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['result'] != null) {
+        return Map<String, dynamic>.from(data['result'] as Map);
+      }
+
+      throw Exception(
+        data?['message'] ?? '获取番剧详情失败 (code: ${data?['code']})',
+      );
+    } catch (e) {
+      debugPrint('[BangumiRepository] 获取番剧详情失败: $e');
+      rethrow;
+    }
+  }
 }
 
 final bangumiRepositoryProvider = Provider<BangumiRepository>((ref) {

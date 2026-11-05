@@ -24,7 +24,8 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
-  bool _isImmersiveMode = true;
+  // 默认进入常规 4 列 Apple TV 微光网格流，保持开屏静音与视觉清爽
+  bool _isImmersiveMode = false;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _firstCardFocusNode =
       FocusNode(debugLabel: 'HomeFirstCardFocus');
@@ -38,6 +39,20 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
         _tryInitialFocus();
       }
     });
+  }
+
+  void _setImmersiveMode(bool immersive) {
+    setState(() {
+      _isImmersiveMode = immersive;
+      _hasInitialFocused = false;
+    });
+    // 沉浸流模式下自动隐藏左侧导轨，满屏呈现；切回网格时恢复导轨
+    ref.read(navRailVisibilityProvider.notifier).setVisible(!immersive);
+    if (!immersive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _tryInitialFocus();
+      });
+    }
   }
 
   void _tryInitialFocus() {
@@ -71,15 +86,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   Widget build(BuildContext context) {
     if (_isImmersiveMode) {
       return TvImmersiveHomeScreen(
-        onSwitchToGrid: () {
-          setState(() {
-            _isImmersiveMode = false;
-            _hasInitialFocused = false;
-          });
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _tryInitialFocus();
-          });
-        },
+        onSwitchToGrid: () => _setImmersiveMode(false),
       );
     }
 
@@ -141,11 +148,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                     }
                     return false;
                   },
-                  onSelect: () {
-                    setState(() {
-                      _isImmersiveMode = true;
-                    });
-                  },
+                  onSelect: () => _setImmersiveMode(true),
                   builder: (context, state, child) {
                     final isFocused = state.focused;
                     return Container(

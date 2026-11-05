@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/tv_theme.dart';
+import '../../../../core/utils/back_navigation_debounce.dart';
 import '../../../../router/route_paths.dart';
 import '../providers/nav_rail_focus_provider.dart';
 import '../widgets/tv_nav_rail.dart';
@@ -33,14 +34,22 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
   @override
   Widget build(BuildContext context) {
     final navService = ref.read(navRailFocusServiceProvider);
+    final isNavRailVisible = ref.watch(navRailVisibilityProvider);
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
 
+        // 全局防抖锁拦截：若 400ms 内已消费过返回事件，坚决丢弃，杜绝连跳
+        if (!BackNavigationDebounce.shouldHandle()) return;
+
         // 1. 如果当前焦点不在左侧导航栏，按返回键优先平滑交接回左侧导航栏
         if (!navService.isNavRailFocused) {
+          // 若导轨当前处于隐退状态，先重新唤出导轨
+          if (!isNavRailVisible) {
+            ref.read(navRailVisibilityProvider.notifier).show();
+          }
           navService.focusSelected();
           return;
         }
@@ -75,15 +84,23 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
         backgroundColor: TvTheme.tvBackground,
         body: Row(
           children: [
-            TvNavRail(currentPath: widget.state.matchedLocation),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: isNavRailVisible
+                  ? TvNavRail(currentPath: widget.state.matchedLocation)
+                  : const SizedBox.shrink(),
+            ),
             Expanded(
               child: Focus(
                 onKeyEvent: (node, event) {
-                  // 当在右侧内容区按下遥控器返回键/Esc时，优先平滑切回左侧导轨
-                  if (event.logicalKey == LogicalKeyboardKey.escape ||
-                      event.logicalKey == LogicalKeyboardKey.goBack) {
+                  // 键盘 Escape 兜底：平滑切回左侧导轨 (Android 物理返回键已由 PopScope 纳管)
+                  if (event.logicalKey == LogicalKeyboardKey.escape) {
                     if (!navService.isNavRailFocused) {
                       if (event is KeyDownEvent) {
+                        if (!isNavRailVisible) {
+                          ref.read(navRailVisibilityProvider.notifier).show();
+                        }
                         navService.focusSelected();
                       }
                       return KeyEventResult.handled;

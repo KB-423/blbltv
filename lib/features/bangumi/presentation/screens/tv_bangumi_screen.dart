@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../widgets/tv_image.dart';
@@ -8,6 +9,7 @@ import '../../../../widgets/tv_scaffold.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
 import '../../data/models/bangumi_season_model.dart';
+import '../../data/repositories/bangumi_repository.dart';
 import '../providers/bangumi_provider.dart';
 
 /// TV 追番 / 影视专区屏幕 (全量真实官方接口，零Mock)
@@ -314,7 +316,7 @@ class _TvBangumiScreenState extends ConsumerState<TvBangumiScreen> {
   }
 }
 
-class _TvBangumiCard extends StatelessWidget {
+class _TvBangumiCard extends ConsumerWidget {
   final BangumiSeasonModel season;
   final bool autofocus;
   final FocusNode? focusNode;
@@ -329,21 +331,87 @@ class _TvBangumiCard extends StatelessWidget {
     this.onFocusChange,
   });
 
+  Future<void> _handlePlayBangumi(BuildContext context, WidgetRef ref) async {
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '正在加载《${season.title}》剧集列表...',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+
+    try {
+      final repo = ref.read(bangumiRepositoryProvider);
+      final detail = await repo.fetchSeasonDetail(season.seasonId);
+      final dynamic episodes = detail['episodes'];
+
+      if (episodes is List && episodes.isNotEmpty) {
+        final firstEp = episodes.first as Map;
+        final String bvid = firstEp['bvid']?.toString() ?? '';
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          if (bvid.isNotEmpty) {
+            context.push('/player/$bvid');
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('未找到该番剧的播放资源 (bvid为空)'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).removeCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('该番剧暂无可用剧集'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).removeCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('获取番剧剧集失败: $e'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return DpadFocusable(
       focusNode: focusNode,
       autofocus: autofocus,
       onDirection: onDirection,
       onFocusChange: onFocusChange,
-      onSelect: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('已选择番剧: ${season.title} (season: ${season.seasonId})'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      },
+      onSelect: () => _handlePlayBangumi(context, ref),
       builder: (context, state, child) {
         final isFocused = state.focused;
         return AnimatedContainer(

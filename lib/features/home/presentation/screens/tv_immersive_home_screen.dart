@@ -52,6 +52,12 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
     _pureModeTimer?.cancel();
     _pureFocusNode.dispose();
     _stripFocusNode.dispose();
+    final videos = ref.read(homeFeedProvider).videos;
+    if (videos.isNotEmpty && _currentIndex >= 0 && _currentIndex < videos.length) {
+      try {
+        ref.read(playerProvider(videos[_currentIndex].bvid).notifier).disposePlayer();
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -85,6 +91,11 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
   void _switchNext(List<VideoItemModel> videos) {
     if (videos.isEmpty) return;
     if (_currentIndex < videos.length - 1) {
+      try {
+        ref
+            .read(playerProvider(videos[_currentIndex].bvid).notifier)
+            .disposePlayer();
+      } catch (_) {}
       setState(() {
         _currentIndex++;
       });
@@ -95,8 +106,13 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
     }
   }
 
-  void _switchPrev() {
-    if (_currentIndex > 0) {
+  void _switchPrev(List<VideoItemModel> videos) {
+    if (_currentIndex > 0 && videos.isNotEmpty) {
+      try {
+        ref
+            .read(playerProvider(videos[_currentIndex].bvid).notifier)
+            .disposePlayer();
+      } catch (_) {}
       setState(() {
         _currentIndex--;
       });
@@ -254,7 +270,7 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
                       }
                       // 向上切流
                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                        _switchPrev();
+                        _switchPrev(videos);
                         return KeyEventResult.handled;
                       }
                       // 向左键：切回左侧导轨
@@ -330,7 +346,14 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
                               ),
                             ),
                             DpadFocusable(
-                              onSelect: widget.onSwitchToGrid,
+                              onSelect: () {
+                                try {
+                                  ref
+                                      .read(playerProvider(currentVideo.bvid).notifier)
+                                      .disposePlayer();
+                                } catch (_) {}
+                                widget.onSwitchToGrid();
+                              },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 4),
@@ -477,6 +500,11 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
                             // 全屏播放器独立入口
                             DpadFocusable(
                               onSelect: () {
+                                try {
+                                  ref
+                                      .read(playerProvider(currentVideo.bvid).notifier)
+                                      .disposePlayer();
+                                } catch (_) {}
                                 context.push(
                                     '/player/${currentVideo.bvid}');
                               },

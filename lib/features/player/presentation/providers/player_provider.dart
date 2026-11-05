@@ -216,11 +216,14 @@ class PlayerNotifier extends Notifier<PlayerState> {
           bufferSize: 64 * 1024 * 1024,
         ),
       );
+      // 立即挂载底层实例句柄，确保任何中途退出或销毁操作都能立即调用 player.stop() 与 dispose()
+      _player = player;
       final dynamic platform = player.platform;
 
       if (_isDisposed) {
         player.stop();
         player.dispose();
+        _player = null;
         return;
       }
 
@@ -243,10 +246,11 @@ class PlayerNotifier extends Notifier<PlayerState> {
       }
 
       // 1. Android 电视平台专用音频驱动配置与音画严格同步 (A/V Sync)
-      // 设置 ao 为 audiotrack 优先、opensles 兜底，彻底解决部分芯片静音问题
+      // 关键：必须使用 opensles 纯 C 原生音频驱动！
+      // 绝对严禁使用 audiotrack，因为 audiotrack 依赖 Java JNI 反射调用，在 Android 15/16 CheckJNI 下因 CheckMethodID 触发 JniAbort 导致应用原生闪退！
       if (Platform.isAndroid) {
         await platform?.setProperty('volume-max', '100');
-        await platform?.setProperty('ao', 'audiotrack,opensles');
+        await platform?.setProperty('ao', 'opensles');
       }
 
       // 音视频高精度同步配置，彻底杜绝外挂音轨音画不同步
@@ -259,18 +263,18 @@ class PlayerNotifier extends Notifier<PlayerState> {
       if (_isDisposed) {
         player.stop();
         player.dispose();
+        _player = null;
         return;
       }
 
       // 2. 原生 HDR 硬件直通与色彩空间提示配置
-      // 注意：target-colorspace-hint 在 Windows (D3D11) 与 Wayland 下向系统传递 HDR 元数据；
-      // 在 Android 上开启会导致 EGL context 初始化失败并抛出 error 0x3004 (EGL_BAD_ATTRIBUTE) 导致画面黑屏，故不在 Android 设置
+      // 在 Android 上 mediacodec 会直接将 HDR 帧渲染至 Surface，设置 target-colorspace-hint 或 target-trc 会导致 EGL 初始化失败
       if (!Platform.isAndroid) {
         await platform?.setProperty('target-colorspace-hint', 'yes');
+        await platform?.setProperty('target-trc', 'auto');
+        await platform?.setProperty('target-prim', 'auto');
+        await platform?.setProperty('tone-mapping', 'auto');
       }
-      await platform?.setProperty('target-trc', 'auto');
-      await platform?.setProperty('target-prim', 'auto');
-      await platform?.setProperty('tone-mapping', 'auto');
 
       // 3. 配置 DASH 独立音轨 (解决声音缺失核心痛点)
       // 关键 1: 必须为 audioUrl 预先注册附带 Referer 防盗链的 Media 缓存，否则 B 站 CDN 返回 403 静音

@@ -33,3 +33,19 @@ final navRailFocusServiceProvider = Provider<NavRailFocusService>((ref) {
   return NavRailFocusService();
 });
 
+/// 控制 TV 左侧导轨显隐的 Notifier (例如首页沉浸纯享影院流时自动隐退)
+class NavRailVisibilityNotifier extends Notifier<bool> {
+  @override
+  bool build() => true;
+
+  void show() => state = true;
+  void hide() => state = false;
+  void setVisible(bool visible) => state = visible;
+}
+
+final navRailVisibilityProvider =
+    NotifierProvider<NavRailVisibilityNotifier, bool>(
+  NavRailVisibilityNotifier.new,
+);
+
+

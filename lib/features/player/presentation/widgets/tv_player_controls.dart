@@ -240,8 +240,7 @@ class TvPlayerControls extends StatelessWidget {
                         return KeyEventResult.handled;
                       }
 
-                      if (event.logicalKey == LogicalKeyboardKey.escape ||
-                          event.logicalKey == LogicalKeyboardKey.goBack) {
+                      if (event.logicalKey == LogicalKeyboardKey.escape) {
                         onBack();
                         return KeyEventResult.handled;
                       }
