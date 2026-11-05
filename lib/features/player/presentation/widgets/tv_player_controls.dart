@@ -7,11 +7,9 @@ import '../../../../models/video/play_url_model.dart';
 
 /// TV 播放器大屏控制层浮层
 /// 分层架构：
-/// - 顶部标题信息栏（纯展示，不抢遥控器焦点）
+/// - 顶部标题信息栏 + 实时在线人数统计
 /// - 底部控制栏作为一个独立的横向行 (DpadRegion)
-/// - 进入控制栏后，左右方向键仅在同行内平移按钮
-/// - 向上方向键 (ArrowUp) 立即切回主视频组件
-/// - 返回键 (Back/Escape) 隐藏控制栏并把焦点归还给主视频组件
+/// - 支持选集抽屉唤出、点赞状态切换、一键三连操作
 class TvPlayerControls extends StatelessWidget {
   final String title;
   final String bvid;
@@ -21,8 +19,13 @@ class TvPlayerControls extends StatelessWidget {
   final int currentQn;
   final List<VideoQualityItem> qualities;
   final bool showDebugOverlay;
+  final String onlineCount;
+  final bool hasParts;
+  final int currentPart;
+  final bool isLiked;
   final FocusNode? playPauseFocusNode;
   final FocusNode? qualityFocusNode;
+  final FocusNode? partBtnFocusNode;
   final VoidCallback? onFocusVideo;
   final VoidCallback? onUserInteraction;
   final VoidCallback onToggleDebugOverlay;
@@ -32,6 +35,9 @@ class TvPlayerControls extends StatelessWidget {
   final VoidCallback? onLongSeekBackward;
   final VoidCallback? onLongSeekForward;
   final VoidCallback onOpenQuality;
+  final VoidCallback? onOpenPartDrawer;
+  final VoidCallback? onToggleLike;
+  final VoidCallback? onTriple;
   final VoidCallback onBack;
 
   const TvPlayerControls({
@@ -44,8 +50,13 @@ class TvPlayerControls extends StatelessWidget {
     required this.currentQn,
     required this.qualities,
     required this.showDebugOverlay,
+    this.onlineCount = '',
+    this.hasParts = false,
+    this.currentPart = 1,
+    this.isLiked = false,
     this.playPauseFocusNode,
     this.qualityFocusNode,
+    this.partBtnFocusNode,
     this.onFocusVideo,
     this.onUserInteraction,
     required this.onToggleDebugOverlay,
@@ -55,6 +66,9 @@ class TvPlayerControls extends StatelessWidget {
     this.onLongSeekBackward,
     this.onLongSeekForward,
     required this.onOpenQuality,
+    this.onOpenPartDrawer,
+    this.onToggleLike,
+    this.onTriple,
     required this.onBack,
   });
 
@@ -73,7 +87,7 @@ class TvPlayerControls extends StatelessWidget {
 
     return Stack(
       children: [
-        // 顶部阴影遮罩与标题栏 (纯视觉展示 + 触控返回，遥控器由物理返回键主导)
+        // 顶部阴影遮罩与标题栏 (标题 + 稿件号 + 实时在看人数)
         Positioned(
           top: 0,
           left: 0,
@@ -85,7 +99,7 @@ class TvPlayerControls extends StatelessWidget {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.85),
+                  Colors.black.withValues(alpha: 0.88),
                   Colors.transparent,
                 ],
               ),
@@ -100,8 +114,9 @@ class TvPlayerControls extends StatelessWidget {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
+                      color: Colors.white.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white12),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -109,14 +124,15 @@ class TvPlayerControls extends StatelessWidget {
                         Icon(
                           Icons.arrow_back_rounded,
                           color: Colors.white,
-                          size: 20,
+                          size: 18,
                         ),
                         SizedBox(width: 6),
                         Text(
                           '返回',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -139,13 +155,37 @@ class TvPlayerControls extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '稿件号: $bvid',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
-                        ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            '稿件: $bvid',
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (onlineCount.isNotEmpty) ...[
+                            const SizedBox(width: 12),
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF00E676),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$onlineCount 人正在看',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),
@@ -167,7 +207,7 @@ class TvPlayerControls extends StatelessWidget {
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Colors.black.withValues(alpha: 0.9),
+                  Colors.black.withValues(alpha: 0.92),
                   Colors.transparent,
                 ],
               ),
@@ -183,7 +223,7 @@ class TvPlayerControls extends StatelessWidget {
                     minHeight: 5,
                     backgroundColor: Colors.white24,
                     valueColor: const AlwaysStoppedAnimation<Color>(
-                      TvTheme.biliPink,
+                      Colors.white,
                     ),
                   ),
                 ),
@@ -192,21 +232,17 @@ class TvPlayerControls extends StatelessWidget {
                 // 操作按钮与时间 (独立横向行)
                 Focus(
                   onKeyEvent: (node, event) {
-                    // 返回键处理：同时捕获并消费 KeyDown 与 KeyUp，彻底防止 Android 产生二次返回
-                    if (event.logicalKey == LogicalKeyboardKey.escape ||
-                        event.logicalKey == LogicalKeyboardKey.goBack) {
-                      if (event is KeyDownEvent) {
-                        onBack();
-                      }
-                      return KeyEventResult.handled;
-                    }
-
                     if (event is KeyDownEvent) {
                       onUserInteraction?.call();
 
-                      // 向上方向键：切回主视频组件
                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
                         onFocusVideo?.call();
+                        return KeyEventResult.handled;
+                      }
+
+                      if (event.logicalKey == LogicalKeyboardKey.escape ||
+                          event.logicalKey == LogicalKeyboardKey.goBack) {
+                        onBack();
                         return KeyEventResult.handled;
                       }
                     }
@@ -215,12 +251,6 @@ class TvPlayerControls extends StatelessWidget {
                   child: DpadRegion(
                     horizontalEdge: DpadEdgeBehavior.stop,
                     verticalEdge: DpadEdgeBehavior.stop,
-                    onEdge: (direction) {
-                      // 向上按键：切回主视频组件
-                      if (direction == TraversalDirection.up) {
-                        onFocusVideo?.call();
-                      }
-                    },
                     child: Row(
                       children: [
                         // 1. 播放/暂停
@@ -238,14 +268,13 @@ class TvPlayerControls extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: isFocused
                                     ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.15),
+                                    : Colors.white.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(10),
                                 boxShadow: isFocused
                                     ? [
                                         BoxShadow(
-                                          color: Colors.white.withValues(alpha: 0.4),
-                                          blurRadius: 14,
-                                          spreadRadius: 1,
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          blurRadius: 12,
                                         ),
                                       ]
                                     : null,
@@ -263,7 +292,7 @@ class TvPlayerControls extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
 
-                        // 2. 快退 10 秒 (长按 30 秒)
+                        // 2. 快退 10 秒
                         DpadFocusable(
                           onSelect: () {
                             onUserInteraction?.call();
@@ -306,7 +335,7 @@ class TvPlayerControls extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
 
-                        // 3. 快进 10 秒 (长按 30 秒)
+                        // 3. 快进 10 秒
                         DpadFocusable(
                           onSelect: () {
                             onUserInteraction?.call();
@@ -361,7 +390,187 @@ class TvPlayerControls extends StatelessWidget {
 
                         const Spacer(),
 
-                        // 5. 调试统计信息切换按钮
+                        // 5. 多 P 选集按钮 (若存在多P)
+                        if (hasParts && onOpenPartDrawer != null) ...[
+                          DpadFocusable(
+                            focusNode: partBtnFocusNode,
+                            onSelect: () {
+                              onUserInteraction?.call();
+                              onOpenPartDrawer!();
+                            },
+                            builder: (context, state, child) {
+                              final isFocused = state.focused;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isFocused
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isFocused ? Colors.white : Colors.white12,
+                                  ),
+                                  boxShadow: isFocused
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.white.withValues(alpha: 0.35),
+                                            blurRadius: 12,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.format_list_numbered_rounded,
+                                      size: 16,
+                                      color: isFocused ? Colors.black : Colors.white70,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      '选集 P$currentPart',
+                                      style: TextStyle(
+                                        color: isFocused ? Colors.black : Colors.white,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // 6. 点赞互动按钮
+                        if (onToggleLike != null) ...[
+                          DpadFocusable(
+                            onSelect: () {
+                              onUserInteraction?.call();
+                              onToggleLike!();
+                            },
+                            builder: (context, state, child) {
+                              final isFocused = state.focused;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isFocused
+                                      ? Colors.white
+                                      : (isLiked
+                                          ? TvTheme.biliPink.withValues(alpha: 0.22)
+                                          : Colors.white.withValues(alpha: 0.12)),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isFocused
+                                        ? Colors.white
+                                        : (isLiked ? TvTheme.biliPink : Colors.white12),
+                                  ),
+                                  boxShadow: isFocused
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.white.withValues(alpha: 0.35),
+                                            blurRadius: 12,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isLiked ? Icons.thumb_up_alt_rounded : Icons.thumb_up_off_alt_rounded,
+                                      size: 16,
+                                      color: isFocused
+                                          ? Colors.black
+                                          : (isLiked ? TvTheme.biliPink : Colors.white70),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      isLiked ? '已赞' : '点赞',
+                                      style: TextStyle(
+                                        color: isFocused
+                                            ? Colors.black
+                                            : (isLiked ? TvTheme.biliPink : Colors.white70),
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // 7. 一键三连按钮
+                        if (onTriple != null) ...[
+                          DpadFocusable(
+                            onSelect: () {
+                              onUserInteraction?.call();
+                              onTriple!();
+                            },
+                            builder: (context, state, child) {
+                              final isFocused = state.focused;
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isFocused
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(
+                                    color: isFocused ? Colors.white : Colors.white12,
+                                  ),
+                                  boxShadow: isFocused
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.white.withValues(alpha: 0.35),
+                                            blurRadius: 12,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.favorite_rounded,
+                                      size: 16,
+                                      color: isFocused ? Colors.black : Colors.white70,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '三连',
+                                      style: TextStyle(
+                                        color: isFocused ? Colors.black : Colors.white,
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: const SizedBox.shrink(),
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+
+                        // 8. 调试统计信息切换按钮
                         DpadFocusable(
                           onSelect: () {
                             onUserInteraction?.call();
@@ -371,22 +580,18 @@ class TvPlayerControls extends StatelessWidget {
                             final isFocused = state.focused;
                             return Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 9,
+                                horizontal: 12,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
                                 color: isFocused
                                     ? Colors.white
                                     : (showDebugOverlay
-                                        ? TvTheme.biliPink.withValues(alpha: 0.25)
+                                        ? Colors.white.withValues(alpha: 0.22)
                                         : Colors.white.withValues(alpha: 0.12)),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: isFocused
-                                      ? Colors.white
-                                      : (showDebugOverlay
-                                          ? TvTheme.biliPink
-                                          : Colors.white12),
+                                  color: isFocused ? Colors.white : Colors.white12,
                                 ),
                                 boxShadow: isFocused
                                     ? [
@@ -405,19 +610,15 @@ class TvPlayerControls extends StatelessWidget {
                                     size: 16,
                                     color: isFocused
                                         ? Colors.black
-                                        : (showDebugOverlay
-                                            ? TvTheme.biliPink
-                                            : Colors.white70),
+                                        : Colors.white70,
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 5),
                                   Text(
-                                    '统计信息',
+                                    '统计',
                                     style: TextStyle(
                                       color: isFocused
                                           ? Colors.black
-                                          : (showDebugOverlay
-                                              ? TvTheme.biliPink
-                                              : Colors.white70),
+                                          : Colors.white70,
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -428,9 +629,9 @@ class TvPlayerControls extends StatelessWidget {
                           },
                           child: const SizedBox.shrink(),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
 
-                        // 6. 画质选择入口按钮
+                        // 9. 画质选择入口按钮
                         DpadFocusable(
                           focusNode: qualityFocusNode,
                           onSelect: () {
@@ -441,8 +642,8 @@ class TvPlayerControls extends StatelessWidget {
                             final isFocused = state.focused;
                             return Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 9,
+                                horizontal: 14,
+                                vertical: 8,
                               ),
                               decoration: BoxDecoration(
                                 color: isFocused
@@ -450,15 +651,13 @@ class TvPlayerControls extends StatelessWidget {
                                     : Colors.white.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
-                                  color: isFocused
-                                      ? Colors.white
-                                      : TvTheme.tvFocusBorder.withValues(alpha: 0.6),
-                                  width: 1.2,
+                                  color: isFocused ? Colors.white : Colors.white24,
+                                  width: 1.0,
                                 ),
                                 boxShadow: isFocused
                                     ? [
                                         BoxShadow(
-                                          color: Colors.white.withValues(alpha: 0.4),
+                                          color: Colors.white.withValues(alpha: 0.35),
                                           blurRadius: 14,
                                           spreadRadius: 1,
                                         ),
@@ -471,9 +670,9 @@ class TvPlayerControls extends StatelessWidget {
                                   Icon(
                                     Icons.high_quality_rounded,
                                     size: 18,
-                                    color: isFocused ? Colors.black : TvTheme.tvFocusBorder,
+                                    color: isFocused ? Colors.black : Colors.white,
                                   ),
-                                  const SizedBox(width: 6),
+                                  const SizedBox(width: 5),
                                   Text(
                                     _getCurrentQnDesc(),
                                     style: TextStyle(

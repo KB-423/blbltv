@@ -4,12 +4,118 @@ import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/video_url_resolver.dart';
 import '../../../../models/video/play_url_model.dart';
+import '../../../../models/video/video_part_model.dart';
 
 /// 视频播放器数据仓库
 class PlayerRepository {
   final ApiClient _apiClient;
 
   PlayerRepository(this._apiClient);
+
+  /// 获取多 P 选集分 P 列表
+  Future<List<VideoPartItem>> fetchPageList(String bvid) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.playerPageList,
+        queryParameters: {'bvid': bvid},
+      );
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['data'] is List) {
+        final list = data['data'] as List;
+        return list
+            .map((item) => VideoPartItem.fromJson(item as Map<String, dynamic>))
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取分P列表异常: $e');
+      return [];
+    }
+  }
+
+  /// 获取实时在线观看人数统计
+  Future<String> fetchOnlineTotal({
+    required String bvid,
+    required int cid,
+  }) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.onlineTotal,
+        queryParameters: {'bvid': bvid, 'cid': cid},
+      );
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['data'] != null) {
+        final total = data['data']['total'] ?? data['data']['count'];
+        if (total != null) {
+          return total.toString();
+        }
+      }
+      return '';
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取在线人数失败: $e');
+      return '';
+    }
+  }
+
+  /// 查询用户是否已对该视频点赞
+  Future<bool> fetchHasLike(String bvid) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.hasLikeVideo,
+        queryParameters: {'bvid': bvid},
+      );
+      final data = res.data;
+      if (data != null && data['code'] == 0) {
+        return (data['data'] as int? ?? 0) == 1;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取点赞状态失败: $e');
+      return false;
+    }
+  }
+
+  /// 点赞 / 取消点赞操作
+  Future<bool> toggleLike({
+    required String bvid,
+    required bool currentLiked,
+  }) async {
+    try {
+      final csrf = await _apiClient.getCsrfToken();
+      final res = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.likeVideo,
+        queryParameters: {
+          'bvid': bvid,
+          'like': currentLiked ? 2 : 1, // 1点赞，2取消点赞
+          if (csrf.isNotEmpty) 'csrf': csrf,
+        },
+      );
+      final data = res.data;
+      return data != null && data['code'] == 0;
+    } catch (e) {
+      debugPrint('[PlayerRepository] 点赞操作失败: $e');
+      return false;
+    }
+  }
+
+  /// 一键三连操作 (点赞 + 投币 + 收藏)
+  Future<bool> doTriple(String bvid) async {
+    try {
+      final csrf = await _apiClient.getCsrfToken();
+      final res = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.tripleLike,
+        queryParameters: {
+          'bvid': bvid,
+          if (csrf.isNotEmpty) 'csrf': csrf,
+        },
+      );
+      final data = res.data;
+      return data != null && data['code'] == 0;
+    } catch (e) {
+      debugPrint('[PlayerRepository] 一键三连失败: $e');
+      return false;
+    }
+  }
 
   /// 获取视频详情及首 P 的 cid
   Future<({String title, int cid, int durationSeconds})> fetchVideoDetail(

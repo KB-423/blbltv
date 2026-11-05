@@ -5,7 +5,8 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../models/video/video_item_model.dart';
 import '../../../../widgets/tv_image.dart';
 
-/// TV 视频大屏卡片组件
+/// TV 视频大屏毛玻璃宽卡片组件 (Apple TV 纯净排布 2 风格)
+/// 14px 大圆角、纯白微光边框、柔和白色漫反射光晕、彻底净化人工修饰词
 class TvVideoCard extends StatelessWidget {
   final VideoItemModel video;
   final VoidCallback? onPlay;
@@ -34,25 +35,33 @@ class TvVideoCard extends StatelessWidget {
       onDirection: onDirection,
       builder: (context, state, child) {
         final isFocused = state.focused;
-        return Container(
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          transform: isFocused
+              ? Matrix4.diagonal3Values(1.03, 1.03, 1.0)
+              : Matrix4.identity(),
+          transformAlignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: TvTheme.cardSurfaceGradient,
-            borderRadius: BorderRadius.circular(12),
+            color: isFocused
+                ? const Color(0xFF1E2130)
+                : const Color(0xFF141622),
+            borderRadius: BorderRadius.circular(TvTheme.radiusCard),
             border: Border.all(
-              color: isFocused ? Colors.white : TvTheme.tvCardBorder,
-              width: isFocused ? 2.0 : 1.0,
+              color: isFocused ? Colors.white : TvTheme.tvGlassBorder,
+              width: isFocused ? 2.0 : 0.8,
             ),
             boxShadow: isFocused
                 ? [
                     BoxShadow(
-                      color: TvTheme.biliBlue.withValues(alpha: 0.4),
-                      blurRadius: 20,
+                      color: Colors.white.withValues(alpha: 0.22),
+                      blurRadius: 18,
                       spreadRadius: 1,
                     ),
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
+                      color: Colors.black.withValues(alpha: 0.32),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -65,7 +74,7 @@ class TvVideoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 封面图 + 时长徽章 + 推荐标签 + 播放量浮层
+          // 封面图 + 时长徽章 + 播放量浮层
           AspectRatio(
             aspectRatio: 16 / 9,
             child: Stack(
@@ -90,37 +99,6 @@ class TvVideoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // 推荐理由徽章 (如: 热门精选、8K超清)
-                if (video.rcmdReason != null && video.rcmdReason!.isNotEmpty)
-                  Positioned(
-                    left: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: TvTheme.biliPinkGradient,
-                        borderRadius: BorderRadius.circular(5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.4),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        video.rcmdReason!,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
 
                 // 封面底部数据浮层 (播放量、弹幕数与时长)
                 Positioned(

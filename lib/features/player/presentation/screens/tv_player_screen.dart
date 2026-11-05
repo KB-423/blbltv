@@ -12,6 +12,7 @@ import '../providers/player_provider.dart';
 import '../widgets/tv_player_controls.dart';
 import '../widgets/tv_player_debug_overlay.dart';
 import '../widgets/tv_quality_panel.dart';
+import '../widgets/tv_part_drawer.dart';
 
 /// TV 全屏视频播放器屏幕
 /// 分层焦点模型：
@@ -48,6 +49,7 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
   // 控制栏各主要入口专用 FocusNode，用于精确交接焦点
   final FocusNode _playPauseFocusNode = FocusNode(debugLabel: 'TvPlayPauseBtn');
   final FocusNode _qualityFocusNode = FocusNode(debugLabel: 'TvQualityBtn');
+  final FocusNode _partBtnFocusNode = FocusNode(debugLabel: 'TvPartBtn');
 
   // 长按快进快退状态机
   bool _isSeekingLongPress = false;
@@ -82,6 +84,7 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     _videoFocusNode.dispose();
     _playPauseFocusNode.dispose();
     _qualityFocusNode.dispose();
+    _partBtnFocusNode.dispose();
     // 退出界面组件树卸载时，主动显式停止并销毁播放器，彻底解决退出后声音残留
     _playerNotifier?.disposePlayer();
     super.dispose();
@@ -122,7 +125,9 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
     }
     _lastBackTime = now;
 
-    if (playerState.showQualityPanel) {
+    if (playerState.showPartDrawer) {
+      notifier.closePartDrawer();
+    } else if (playerState.showQualityPanel) {
       notifier.closeQualityPanel();
     } else if (playerState.showControls) {
       notifier.toggleControls();
@@ -311,6 +316,24 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       }
     });
 
+    // 焦点自愈 3：当选集抽屉关闭时，将焦点交接回选集按钮或播放器主体
+    ref.listen(playerProvider(widget.bvid).select((s) => s.showPartDrawer),
+        (prev, showDrawer) {
+      if (prev == true && !showDrawer) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            final isControlsShowing =
+                ref.read(playerProvider(widget.bvid)).showControls;
+            if (isControlsShowing) {
+              _partBtnFocusNode.requestFocus();
+            } else {
+              _videoFocusNode.requestFocus();
+            }
+          }
+        });
+      }
+    });
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
@@ -474,8 +497,13 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                 currentQn: playerState.currentQn,
                 qualities: playerState.qualities,
                 showDebugOverlay: showDebugOverlay,
+                onlineCount: playerState.onlineCount,
+                hasParts: playerState.parts.length > 1,
+                currentPart: playerState.currentPartIndex + 1,
+                isLiked: playerState.isLiked,
                 playPauseFocusNode: _playPauseFocusNode,
                 qualityFocusNode: _qualityFocusNode,
+                partBtnFocusNode: _partBtnFocusNode,
                 onFocusVideo: () {
                   _videoFocusNode.requestFocus();
                 },
@@ -491,6 +519,19 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                 onLongSeekBackward: () => notifier.seekBackward(seconds: 30),
                 onLongSeekForward: () => notifier.seekForward(seconds: 30),
                 onOpenQuality: notifier.openQualityPanel,
+                onOpenPartDrawer: notifier.openPartDrawer,
+                onToggleLike: notifier.toggleLike,
+                onTriple: () async {
+                  final ok = await notifier.doTriple();
+                  if (context.mounted && ok) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('一键三连成功！感谢支持！'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
                 onBack: () => _handleBack(context, playerState, notifier),
               ),
 
@@ -512,6 +553,27 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                   currentQn: playerState.currentQn,
                   onSelectQuality: (qn) => notifier.changeQuality(qn),
                   onClose: notifier.closeQualityPanel,
+                ),
+              ),
+            ],
+
+            // 8. 侧边弹出式分 P 选集抽屉 (独立 FocusScope)
+            if (playerState.showPartDrawer) ...[
+              GestureDetector(
+                onTap: notifier.closePartDrawer,
+                child: Container(
+                  color: Colors.black45,
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                bottom: 0,
+                child: TvPartDrawer(
+                  parts: playerState.parts,
+                  currentPartIndex: playerState.currentPartIndex,
+                  onSelectPart: notifier.changePart,
+                  onClose: notifier.closePartDrawer,
                 ),
               ),
             ],

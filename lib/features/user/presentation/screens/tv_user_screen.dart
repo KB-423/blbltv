@@ -39,36 +39,6 @@ class _TvUserScreenState extends ConsumerState<TvUserScreen> {
     return TvScaffold(
       header: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              gradient: TvTheme.biliPinkGradient,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: TvTheme.biliPink.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.person_rounded, size: 15, color: Colors.white),
-                SizedBox(width: 5),
-                Text(
-                  '个人空间',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
           Text(
             '个人中心',
             style: Theme.of(context).textTheme.headlineMedium,

@@ -97,38 +97,9 @@ class _TvSearchScreenState extends ConsumerState<TvSearchScreen> {
             verticalEdge: DpadEdgeBehavior.leave,
             child: Row(
               children: [
-                Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  gradient: TvTheme.biliBlueGradient,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: TvTheme.biliBlue.withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.search_rounded, size: 15, color: Colors.white),
-                    SizedBox(width: 5),
-                    Text(
-                      '全网检索',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              Text('全站搜索', style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(width: 24),
+                Text('全站搜索',
+                    style: Theme.of(context).textTheme.headlineMedium),
+                const SizedBox(width: 24),
 
               // TV 优化搜索输入框 (使用电视系统自带输入法)
               Expanded(

@@ -75,36 +75,6 @@ class _TvSettingsScreenState extends ConsumerState<TvSettingsScreen> {
     return TvScaffold(
       header: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              gradient: TvTheme.biliBlueGradient,
-              borderRadius: BorderRadius.circular(8),
-              boxShadow: [
-                BoxShadow(
-                  color: TvTheme.biliBlue.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.tune_rounded, size: 15, color: Colors.white),
-                SizedBox(width: 5),
-                Text(
-                  '首选项',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
           Text(
             '系统与播放设置',
             style: Theme.of(context).textTheme.headlineMedium,

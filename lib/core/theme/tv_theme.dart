@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// Bili for TV 现代大屏视觉与主题规范
-/// 遵循 10-foot 视觉层次、深邃黑曜石背景与沉浸式影院级玻璃质感
+/// Bili for TV 现代大屏视觉与主题规范 (Apple TV 纯净毛玻璃 Liquid Glass 风格)
+/// 遵循 10-foot 视觉层次、深邃黑曜石背景与纯白微光漫反射质感
 class TvTheme {
   TvTheme._();
 
-  // Bilibili 标志性品牌色
+  // Bilibili 标志性品牌色 (仅保留纯粹品牌标识与点缀)
   static const Color biliPink = Color(0xFFFF6699);
   static const Color biliPinkLight = Color(0xFFFF85AD);
   static const Color biliPinkDark = Color(0xFFE0447C);
@@ -14,17 +14,29 @@ class TvTheme {
   static const Color vipGold = Color(0xFFFFB027);
 
   // 现代大屏深邃黑曜石背景与表面色阶
-  static const Color tvBackground = Color(0xFF0C0D14);
-  static const Color tvSurface = Color(0xFF161824);
-  static const Color tvSurfaceLight = Color(0xFF222536);
-  static const Color tvSurfaceElevated = Color(0xFF2B2F44);
+  static const Color tvBackground = Color(0xFF0A0B10);
+  static const Color tvSurface = Color(0xFF141620);
+  static const Color tvSurfaceLight = Color(0xFF1E2130);
+  static const Color tvSurfaceElevated = Color(0xFF282C3E);
 
-  // 边框与阴影色阶
-  static const Color tvCardBorder = Color(0x1AFFFFFF); // 10% 微光白边
-  static const Color tvCardBorderFocused = Color(0xFFFFFFFF);
-  static const Color tvFocusBorder = Color(0xFF00AEEC);
-  static const Color tvFocusGlow = Color(0x4D00AEEC);
-  static const Color tvDivider = Color(0x1FFFFFFF);
+  // Apple TV 纯净毛玻璃 (Liquid Glass) 与微光色阶
+  static const Color tvGlassBackground = Color(0x18FFFFFF); // 10% 通透悬浮
+  static const Color tvGlassSurface = Color(0x28161824);    // 浮层深色半透
+  static const Color tvGlassBorder = Color(0x24FFFFFF);     // 14% 极细漫白边
+  static const Color tvGlassBorderActive = Color(0x8AFFFFFF); // 54% 亮白微光边
+  static const Color tvGlowWhite = Color(0x35FFFFFF);       // 纯白柔和漫反射光晕
+
+  // 边框与阴影色阶 (向下兼容)
+  static const Color tvCardBorder = tvGlassBorder;
+  static const Color tvCardBorderFocused = Colors.white;
+  static const Color tvFocusBorder = Colors.white;
+  static const Color tvFocusGlow = tvGlowWhite;
+  static const Color tvDivider = Color(0x18FFFFFF);
+
+  // 统一圆角规范
+  static const double radiusCard = 14.0;
+  static const double radiusPill = 20.0;
+  static const double radiusTile = 10.0;
 
   // 大屏文字对比度标准 (符合 WCAG AA 级大屏远距离观影标准)
   static const Color tvTextPrimary = Color(0xFFFFFFFF);
@@ -54,13 +66,13 @@ class TvTheme {
   static const LinearGradient cardSurfaceGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1C1E2D), Color(0xFF131520)],
+    colors: [Color(0xFF1A1C28), Color(0xFF12131C)],
   );
 
   static const LinearGradient navRailGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF13141F), Color(0xFF0D0E16)],
+    colors: [Color(0x22FFFFFF), Color(0x10FFFFFF)],
   );
 
   static ThemeData get darkTheme {
@@ -118,4 +130,3 @@ class TvTheme {
     );
   }
 }
-

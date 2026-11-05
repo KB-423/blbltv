@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import '../../../../models/video/play_url_model.dart';
+import '../../../../models/video/video_part_model.dart';
 
 part 'generated/player_state.freezed.dart';
 
@@ -14,6 +15,11 @@ abstract class PlayerState with _$PlayerState {
     @Default('') String currentAudioUrl,
     @Default(80) int currentQn,
     @Default(<VideoQualityItem>[]) List<VideoQualityItem> qualities,
+    @Default(<VideoPartItem>[]) List<VideoPartItem> parts,
+    @Default(0) int currentPartIndex,
+    @Default('') String onlineCount,
+    @Default(false) bool isLiked,
+    @Default(false) bool showPartDrawer,
     @Default(true) bool isLoading,
     @Default(false) bool isPlaying,
     @Default(false) bool isBuffering,

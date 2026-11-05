@@ -26,6 +26,16 @@ class ApiConstants {
   static const String videoPlayUrl = '/x/player/wbi/playurl';
   static const String bangumiPlayUrl = '/pgc/player/web/playurl';
   static const String videoHeartbeat = '/x/click-interface/web/heartbeat';
+  static const String playerPageList = '/x/player/pagelist';
+  static const String onlineTotal = '/x/player/online/total';
+  static const String hasLikeVideo = '/x/web-interface/archive/has/like';
+  static const String likeVideo = '/x/web-interface/archive/like';
+  static const String hasCoinVideo = '/x/web-interface/archive/coins';
+  static const String tripleLike = '$appBaseUrl/x/v2/view/like/triple';
+
+  // 专区端点 (热门、直播、番剧)
+  static const String liveList = '$liveBaseUrl/xlive/web-interface/v1/index/getList';
+  static const String bangumiSeasonIndex = '/pgc/season/index/result';
 
   // 登录与认证 (TV 扫码流)
   static const String qrcodeGenerate =

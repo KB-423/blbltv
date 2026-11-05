@@ -20,7 +20,8 @@ class NavRailItem {
   });
 }
 
-/// TV 左侧导航导轨
+/// TV 左侧悬浮折叠微光侧边导轨 (Apple TV Liquid Glass 选项 B)
+/// 靠左悬浮半透明微光细条，未获焦轻量通透，获焦展开白色微光胶囊
 class TvNavRail extends ConsumerWidget {
   final String currentPath;
 
@@ -72,91 +73,54 @@ class TvNavRail extends ConsumerWidget {
     final authState = ref.watch(authProvider);
     final size = MediaQuery.of(context).size;
     final bool isCompact = size.width <= 1000 || size.height <= 650;
-    final double railWidth = isCompact ? 168.0 : 196.0;
+    final double railWidth = isCompact ? 148.0 : 168.0;
 
     return Container(
       width: railWidth,
-      decoration: const BoxDecoration(
-        gradient: TvTheme.navRailGradient,
-        border: Border(
-          right: BorderSide(color: TvTheme.tvCardBorder, width: 1.0),
+      margin: const EdgeInsets.fromLTRB(14, 16, 8, 16),
+      decoration: BoxDecoration(
+        color: TvTheme.tvGlassBackground,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: TvTheme.tvGlassBorder,
+          width: 0.8,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(2, 4),
+          ),
+        ],
       ),
       padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 14,
-        vertical: isCompact ? 16 : 22,
+        horizontal: isCompact ? 8 : 10,
+        vertical: isCompact ? 16 : 20,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // App 品牌 Logo
+          // 极简微光 Logo (纯白微光质感，拒绝生硬彩框)
           Padding(
             padding: EdgeInsets.only(
-              left: 4,
-              bottom: isCompact ? 18 : 26,
+              left: 6,
+              bottom: isCompact ? 16 : 22,
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    gradient: TvTheme.biliPinkGradient,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: TvTheme.biliPink.withValues(alpha: 0.35),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.tv_rounded,
-                    color: Colors.white,
-                    size: isCompact ? 18 : 22,
-                  ),
+                Icon(
+                  Icons.tv_rounded,
+                  color: Colors.white,
+                  size: isCompact ? 20 : 22,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Bili TV',
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isCompact ? 16 : 19,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 1.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: TvTheme.biliBlue.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: TvTheme.biliBlue.withValues(alpha: 0.5),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: const Text(
-                          '4K',
-                          style: TextStyle(
-                            color: TvTheme.biliBlue,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(width: 8),
+                Text(
+                  'Bili TV',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 16 : 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ],
@@ -170,7 +134,7 @@ class TvNavRail extends ConsumerWidget {
               horizontalEdge: DpadEdgeBehavior.leave,
               child: ListView.separated(
                 itemCount: items.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 8),
+                separatorBuilder: (context, index) => const SizedBox(height: 6),
                 itemBuilder: (context, index) {
                   final item = items[index];
                   final isSelected = currentPath.startsWith(item.path);
@@ -270,38 +234,34 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
         final bool isSelected = widget.isSelected;
 
         Color bgColor = Colors.transparent;
-        Gradient? bgGradient;
         Border? border;
         List<BoxShadow>? shadows;
 
         if (isFocused) {
-          if (isSelected) {
-            bgGradient = TvTheme.biliPinkGradient;
-            shadows = [
-              BoxShadow(
-                color: TvTheme.biliPink.withValues(alpha: 0.45),
-                blurRadius: 14,
-                spreadRadius: 1,
-              ),
-            ];
-          } else {
-            bgColor = Colors.white.withValues(alpha: 0.18);
-            border = Border.all(color: Colors.white, width: 1.5);
-          }
+          // 获焦：浮起半透明纯白微光胶囊 + 柔和白色漫反射阴影
+          bgColor = Colors.white.withValues(alpha: 0.18);
+          border = Border.all(color: Colors.white, width: 1.2);
+          shadows = [
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.22),
+              blurRadius: 12,
+              spreadRadius: 1,
+            ),
+          ];
         } else if (isSelected) {
-          bgColor = TvTheme.biliPink.withValues(alpha: 0.16);
-          border = Border.all(color: TvTheme.biliPink.withValues(alpha: 0.35), width: 1);
+          // 选中但未落焦：淡雅轻白底
+          bgColor = Colors.white.withValues(alpha: 0.08);
+          border = Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.8);
         } else {
           bgColor = Colors.transparent;
         }
 
         return Container(
-          height: isCompact ? 44 : 48,
+          height: isCompact ? 42 : 46,
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12),
           decoration: BoxDecoration(
-            color: bgGradient == null ? bgColor : null,
-            gradient: bgGradient,
-            borderRadius: BorderRadius.circular(10),
+            color: bgColor,
+            borderRadius: BorderRadius.circular(12),
             border: border,
             boxShadow: shadows,
           ),
@@ -310,16 +270,6 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
       },
       child: Row(
         children: [
-          if (widget.isSelected)
-            Container(
-              width: 3.5,
-              height: 18,
-              margin: const EdgeInsets.only(right: 8),
-              decoration: BoxDecoration(
-                color: TvTheme.biliPink,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
           if (widget.isUserTab &&
               widget.isLoggedIn &&
               widget.avatarUrl.isNotEmpty)
@@ -327,8 +277,8 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: widget.isSelected ? TvTheme.biliPink : Colors.white24,
-                  width: 1.5,
+                  color: widget.isSelected ? Colors.white : Colors.white24,
+                  width: 1.2,
                 ),
               ),
               child: ClipOval(
@@ -345,9 +295,7 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
           else
             Icon(
               widget.item.icon,
-              color: widget.isSelected
-                  ? Colors.white
-                  : TvTheme.tvTextSecondary,
+              color: widget.isSelected ? Colors.white : const Color(0x9AFFFFFF),
               size: isCompact ? 19 : 21,
             ),
           SizedBox(width: isCompact ? 10 : 12),
@@ -357,13 +305,9 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: widget.isSelected
-                    ? Colors.white
-                    : TvTheme.tvTextSecondary,
-                fontSize: isCompact ? 13.5 : 15,
-                fontWeight: widget.isSelected
-                    ? FontWeight.w700
-                    : FontWeight.w500,
+                color: widget.isSelected ? Colors.white : const Color(0x9AFFFFFF),
+                fontSize: isCompact ? 13.5 : 14.5,
+                fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
           ),

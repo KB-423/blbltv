@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../models/video/video_part_model.dart';
 import '../../data/repositories/player_repository.dart';
 import 'player_state.dart';
 
@@ -166,6 +167,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
         targetQn: playInfo.currentQn,
         startPosition: initialPosition,
       );
+
+      // 5. 异步并行加载分P选集列表、在线观看人数与点赞状态 (零Mock，真实API)
+      _loadExtraVideoData(bvid, detail.cid);
     } catch (e) {
       if (_isDisposed) return;
       debugPrint('[PlayerNotifier] 初始化异常: $e');
@@ -531,6 +535,124 @@ class PlayerNotifier extends Notifier<PlayerState> {
   void closeQualityPanel() {
     if (_isDisposed) return;
     state = state.copyWith(showQualityPanel: false);
+    _resetHideControlsTimer();
+  }
+
+  /// 异步并行获取附加数据 (分P选集、在线人数、点赞状态)
+  Future<void> _loadExtraVideoData(String bvid, int currentCid) async {
+    try {
+      final partsFuture = _repository.fetchPageList(bvid);
+      final onlineFuture = _repository.fetchOnlineTotal(bvid: bvid, cid: currentCid);
+      final likeFuture = _repository.fetchHasLike(bvid);
+
+      final results = await Future.wait([partsFuture, onlineFuture, likeFuture]);
+      if (_isDisposed) return;
+
+      final parts = results[0] as List<VideoPartItem>;
+      final online = results[1] as String;
+      final hasLike = results[2] as bool;
+
+      int partIdx = 0;
+      for (int i = 0; i < parts.length; i++) {
+        if (parts[i].cid == currentCid) {
+          partIdx = i;
+          break;
+        }
+      }
+
+      state = state.copyWith(
+        parts: parts,
+        currentPartIndex: partIdx,
+        onlineCount: online,
+        isLiked: hasLike,
+      );
+    } catch (e) {
+      debugPrint('[PlayerNotifier] 获取额外数据异常: $e');
+    }
+  }
+
+  /// 切换分 P 选集
+  Future<void> changePart(int index) async {
+    if (index < 0 || index >= state.parts.length || _isDisposed) return;
+    final targetPart = state.parts[index];
+    if (targetPart.cid == state.cid) {
+      closePartDrawer();
+      return;
+    }
+
+    state = state.copyWith(
+      isLoading: true,
+      cid: targetPart.cid,
+      currentPartIndex: index,
+      showPartDrawer: false,
+    );
+
+    try {
+      final preferredQn = ref.read(storageServiceProvider).preferredQuality;
+      final playInfo = await _repository.fetchPlayUrl(
+        bvid: bvid,
+        cid: targetPart.cid,
+        qn: preferredQn,
+      );
+      if (_isDisposed) return;
+
+      state = state.copyWith(
+        currentUrl: playInfo.playUrl,
+        currentAudioUrl: playInfo.audioUrl,
+        currentQn: playInfo.currentQn,
+        qualities: playInfo.qualities,
+      );
+
+      await _setupController(
+        playInfo.playUrl,
+        audioUrl: playInfo.audioUrl,
+        targetQn: playInfo.currentQn,
+        startPosition: Duration.zero,
+      );
+
+      // 更新该分 P 的实时在线人数
+      final online = await _repository.fetchOnlineTotal(
+        bvid: bvid,
+        cid: targetPart.cid,
+      );
+      if (!_isDisposed) {
+        state = state.copyWith(onlineCount: online);
+      }
+    } catch (e) {
+      if (_isDisposed) return;
+      state = state.copyWith(isLoading: false, error: '切换分P失败: $e');
+    }
+  }
+
+  /// 切换点赞状态
+  Future<void> toggleLike() async {
+    final current = state.isLiked;
+    final ok = await _repository.toggleLike(bvid: bvid, currentLiked: current);
+    if (ok && !_isDisposed) {
+      state = state.copyWith(isLiked: !current);
+    }
+  }
+
+  /// 一键三连 (点赞+投币+收藏)
+  Future<bool> doTriple() async {
+    final ok = await _repository.doTriple(bvid);
+    if (ok && !_isDisposed) {
+      state = state.copyWith(isLiked: true);
+    }
+    return ok;
+  }
+
+  /// 打开选集抽屉
+  void openPartDrawer() {
+    if (_isDisposed) return;
+    _hideControlsTimer?.cancel();
+    state = state.copyWith(showPartDrawer: true, showControls: true);
+  }
+
+  /// 关闭选集抽屉
+  void closePartDrawer() {
+    if (_isDisposed) return;
+    state = state.copyWith(showPartDrawer: false);
     _resetHideControlsTimer();
   }
 }
