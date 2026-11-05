@@ -252,10 +252,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
       await platform?.setProperty('network-timeout', '10');
       await platform?.setProperty('force-seekable', 'yes');
 
-      // 0.1 设置硬件解码驱动策略
-      // 使用 auto-safe 调度：在 Android TV 真机上自动命中 mediacodec 硬解；在模拟器上安全回退软解，避免黑屏
+      // 0.1 强制显式启用 Android 原生 mediacodec 直通硬件解码
       if (Platform.isAndroid) {
-        await platform?.setProperty('hwdec', 'auto-safe');
+        await platform?.setProperty('hwdec', 'mediacodec');
         await platform?.setProperty('hwdec-codecs', 'all');
       } else {
         await platform?.setProperty('hwdec', 'auto');
@@ -321,10 +320,56 @@ class PlayerNotifier extends Notifier<PlayerState> {
         player,
         configuration: VideoControllerConfiguration(
           enableHardwareAcceleration: true,
-          hwdec: Platform.isAndroid ? 'auto-safe' : 'auto',
-          androidAttachSurfaceAfterVideoParameters: false,
+          hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
         ),
       );
+
+      _player = player;
+      _videoController = videoController;
+
+      // 关键时序保障：等待 Android Native Surface 完全绑定到 MPV 实例
+      // 杜绝冷启动时在 Surface 缺失状态下提早解码导致 MediaCodec 降级为 isSurface:0 (Buffer拷贝模式) 造成严重丢帧！
+      if (Platform.isAndroid) {
+        try {
+          final dynamic platformController =
+              await videoController.platform.future;
+          final dynamic widNotifier = platformController?.wid;
+          if (widNotifier is ValueNotifier<int?> && widNotifier.value == null) {
+            final widCompleter = Completer<void>();
+            void onWidChanged() {
+              if (widNotifier.value != null && !widCompleter.isCompleted) {
+                widCompleter.complete();
+              }
+            }
+
+            widNotifier.addListener(onWidChanged);
+            // 设置 800ms 保护闸门，一旦 Surface 附着完毕立即触发唤醒
+            await widCompleter.future.timeout(
+              const Duration(milliseconds: 800),
+              onTimeout: () {},
+            );
+            widNotifier.removeListener(onWidChanged);
+          }
+        } catch (e) {
+          debugPrint('[PlayerNotifier] 等待 Native Surface 异常: $e');
+        }
+      } else {
+        try {
+          await videoController.platform.future.timeout(
+            const Duration(milliseconds: 500),
+            onTimeout: () => videoController.platform.future,
+          );
+        } catch (_) {}
+      }
+
+      if (_isDisposed) {
+        player.setVolume(0);
+        player.stop();
+        player.dispose();
+        _player = null;
+        _videoController = null;
+        return;
+      }
 
       bool isWaitingInitialSeek = startPosition > Duration.zero;
 
@@ -362,10 +407,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
         debugPrint('[PlayerNotifier] MediaKit error: $err');
       });
 
-      _player = player;
-      _videoController = videoController;
-
-      // 4. 打开主视频流并指定起始续播位置 (使用 play: false 确保音画在 PAUSED 状态下完成解复用和对齐)
+      // 4. 打开主视频流并指定起始续播位置 (Surface 已就绪，MediaCodec 命中 isSurface:1 直通硬解)
       await player.open(
         Media(
           url,
@@ -505,7 +547,54 @@ class PlayerNotifier extends Notifier<PlayerState> {
             : state.qualities,
       );
 
-      // 用保存的播放进度无缝切换流
+      // 优化：若当前已有存活的播放器与视频控制器，直接无缝切流并继承进度
+      // 杜绝反复销毁/重建 Player 与 Native Surface 导致的黑屏停顿与 JNI 资源抖动
+      if (_player != null && _videoController != null) {
+        final player = _player!;
+        final dynamic platform = player.platform;
+
+        // 1. 更新独立音轨 (audio-files)
+        if (playInfo.audioUrl.isNotEmpty) {
+          Media(
+            playInfo.audioUrl,
+            httpHeaders: const {
+              'Referer': ApiConstants.defaultReferer,
+              'User-Agent': ApiConstants.defaultUserAgent,
+            },
+          );
+          final safeAudioUrl = Platform.isWindows
+              ? playInfo.audioUrl.replaceAll(';', '\\;')
+              : playInfo.audioUrl.replaceAll(':', '\\:');
+          await platform?.setProperty('audio-files', safeAudioUrl);
+        } else {
+          await platform?.setProperty('audio-files', '');
+        }
+
+        // 2. 直接打开新画质视频流，实现无闪烁、无销毁的无缝续播
+        await player.open(
+          Media(
+            playInfo.playUrl,
+            httpHeaders: const {
+              'Referer': ApiConstants.defaultReferer,
+              'User-Agent': ApiConstants.defaultUserAgent,
+            },
+            start: currentPos,
+          ),
+          play: true,
+        );
+
+        if (!_isDisposed) {
+          state = state.copyWith(
+            isLoading: false,
+            isPlaying: true,
+            error: null,
+          );
+          _resetHideControlsTimer();
+        }
+        return;
+      }
+
+      // 兜底：若播放器尚未创建，走全量构建流程
       await _setupController(
         playInfo.playUrl,
         audioUrl: playInfo.audioUrl,
