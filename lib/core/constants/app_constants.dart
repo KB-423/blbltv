@@ -19,9 +19,9 @@ class AppConstants {
   static const Duration focusAnimationDuration = Duration(milliseconds: 180);
   static const double cardBorderRadius = 10.0;
 
-  // 网络请求超时
-  static const Duration connectTimeout = Duration(seconds: 12);
-  static const Duration receiveTimeout = Duration(seconds: 12);
+  // 网络请求超时 (大屏电视 Wi-Fi 适度容错窗口)
+  static const Duration connectTimeout = Duration(seconds: 25);
+  static const Duration receiveTimeout = Duration(seconds: 25);
 
   // 本地存储 Key
   static const String keyUserToken = 'key_user_token';

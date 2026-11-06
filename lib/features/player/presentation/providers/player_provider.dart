@@ -28,6 +28,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<String>? _errorSub;
 
+  late final PlayerRepository _repository;
+  late final StorageService _storageService;
+
   PlayerNotifier(this.bvid);
 
   VideoController? get videoController => _videoController;
@@ -36,6 +39,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
   @override
   PlayerState build() {
     _isDisposed = false;
+    _repository = ref.read(playerRepositoryProvider);
+    _storageService = ref.read(storageServiceProvider);
+
     ref.onDispose(() {
       _stopAndDispose();
     });
@@ -44,8 +50,6 @@ class PlayerNotifier extends Notifier<PlayerState> {
     Future.microtask(() => _initVideo(bvid));
     return PlayerState(bvid: bvid);
   }
-
-  PlayerRepository get _repository => ref.read(playerRepositoryProvider);
 
   void _cancelSubscriptions() {
     _posSub?.cancel();
@@ -62,6 +66,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 瞬间静音并暂停，专用于退出路由触发的第 0 毫秒切断音频
   void pauseAndStopAudio() {
+    if (_isDisposed) return;
     try {
       final p = _player;
       if (p != null) {
@@ -71,63 +76,78 @@ class PlayerNotifier extends Notifier<PlayerState> {
     } catch (_) {}
   }
 
+  /// 安全释放底层 Player 实例，防止重复销毁触发 MediaKit 断言崩溃
+  void _safeDisposePlayer(Player? p) {
+    if (p == null) return;
+    try {
+      p.setVolume(0);
+    } catch (_) {}
+    try {
+      p.pause();
+    } catch (_) {}
+    try {
+      p.stop();
+    } catch (_) {}
+    try {
+      p.dispose();
+    } catch (_) {}
+  }
+
   /// 停止音频与视频输出并销毁 MPV 实例，彻底消除退出界面后声音还在继续的竞态问题
   void _stopAndDispose() {
     if (_isDisposed) return;
+    saveCurrentProgress();
+    reportHistoryHeartbeat();
+
     _isDisposed = true;
 
     _hideControlsTimer?.cancel();
     _saveHistoryTimer?.cancel();
     _heartbeatTimer?.cancel();
-    saveCurrentProgress();
-    reportHistoryHeartbeat();
     _cancelSubscriptions();
 
     final p = _player;
     _player = null;
     _videoController = null;
 
-    if (p != null) {
-      try {
-        p.setVolume(0);
-        p.pause();
-        p.stop(); // 立即掐断音频与视频解码！
-        p.dispose();
-      } catch (e) {
-        debugPrint('[PlayerNotifier] 停止播放器异常: $e');
-      }
-    }
+    _safeDisposePlayer(p);
   }
 
   /// 保存当前视频播放进度
   void saveCurrentProgress() {
+    if (_isDisposed) return;
     final p = _player;
     if (p == null) return;
-    final pos = p.state.position;
-    final dur = p.state.duration;
+    try {
+      final pos = p.state.position;
+      final dur = p.state.duration;
 
-    if (pos.inSeconds > 5) {
-      if (dur > Duration.zero && (dur.inSeconds - pos.inSeconds) <= 10) {
-        // 视频接近尾声（剩余不到 10 秒），重置进度
-        ref.read(storageServiceProvider).removeVideoProgress(bvid);
-      } else {
-        ref.read(storageServiceProvider).saveVideoProgress(bvid, pos.inSeconds);
+      if (pos.inSeconds > 5) {
+        if (dur > Duration.zero && (dur.inSeconds - pos.inSeconds) <= 10) {
+          // 视频接近尾声（剩余不到 10 秒），重置进度
+          _storageService.removeVideoProgress(bvid);
+        } else {
+          _storageService.saveVideoProgress(bvid, pos.inSeconds);
+        }
       }
-    }
+    } catch (_) {}
   }
 
   /// 向 B 站官方上报播放心跳进度，确保视频进入云端观看历史
   void reportHistoryHeartbeat() {
-    if (state.bvid.isNotEmpty && state.cid > 0) {
-      final playedSec =
-          _player?.state.position.inSeconds ?? state.position.inSeconds;
-      _repository.reportHeartbeat(
-        bvid: state.bvid,
-        cid: state.cid,
-        playedTime: playedSec,
-        duration: state.duration.inSeconds,
-      );
-    }
+    if (_isDisposed) return;
+    try {
+      if (state.bvid.isNotEmpty && state.cid > 0) {
+        final playedSec =
+            _player?.state.position.inSeconds ?? state.position.inSeconds;
+        _repository.reportHeartbeat(
+          bvid: state.bvid,
+          cid: state.cid,
+          playedTime: playedSec,
+          duration: state.duration.inSeconds,
+        );
+      }
+    } catch (_) {}
   }
 
   /// 初始化视频流
@@ -147,8 +167,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       );
 
       // 2. 读取该视频历史播放记录
-      final savedProgressSec =
-          ref.read(storageServiceProvider).getVideoProgress(bvid);
+      final savedProgressSec = _storageService.getVideoProgress(bvid);
       Duration initialPosition = Duration.zero;
       if (savedProgressSec > 5 &&
           (detail.durationSeconds == 0 ||
@@ -157,7 +176,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       }
 
       // 3. 获取播放流 (优先申请用户手动设置的偏好画质，默认 120/4K 超清规格)
-      final preferredQn = ref.read(storageServiceProvider).preferredQuality;
+      final preferredQn = _storageService.preferredQuality;
       final playInfo = await _repository.fetchPlayUrl(
         bvid: bvid,
         cid: detail.cid,
@@ -214,10 +233,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     _saveHistoryTimer?.cancel();
 
     if (oldPlayer != null) {
-      try {
-        oldPlayer.stop();
-        await oldPlayer.dispose();
-      } catch (_) {}
+      _safeDisposePlayer(oldPlayer);
     }
 
     if (_isDisposed) return;
@@ -234,8 +250,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       final dynamic platform = player.platform;
 
       if (_isDisposed) {
-        player.stop();
-        player.dispose();
+        _safeDisposePlayer(player);
         _player = null;
         return;
       }
@@ -276,8 +291,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       await platform?.setProperty('autosync', '30');
 
       if (_isDisposed) {
-        player.stop();
-        player.dispose();
+        _safeDisposePlayer(player);
         _player = null;
         return;
       }
@@ -310,9 +324,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
       }
 
       if (_isDisposed) {
-        player.setVolume(0);
-        player.stop();
-        player.dispose();
+        _safeDisposePlayer(player);
+        _player = null;
         return;
       }
 
@@ -363,9 +376,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       }
 
       if (_isDisposed) {
-        player.setVolume(0);
-        player.stop();
-        player.dispose();
+        _safeDisposePlayer(player);
         _player = null;
         _videoController = null;
         return;
@@ -408,32 +419,36 @@ class PlayerNotifier extends Notifier<PlayerState> {
       });
 
       // 4. 打开主视频流并指定起始续播位置 (Surface 已就绪，MediaCodec 命中 isSurface:1 直通硬解)
-      await player.open(
-        Media(
-          url,
-          httpHeaders: const {
-            'Referer': ApiConstants.defaultReferer,
-            'User-Agent': ApiConstants.defaultUserAgent,
-          },
-          start: startPosition > Duration.zero ? startPosition : null,
-        ),
-        play: false,
-      );
+      try {
+        await player.open(
+          Media(
+            url,
+            httpHeaders: const {
+              'Referer': ApiConstants.defaultReferer,
+              'User-Agent': ApiConstants.defaultUserAgent,
+            },
+            start: startPosition > Duration.zero ? startPosition : null,
+          ),
+          play: false,
+        );
+      } catch (openErr) {
+        if (_isDisposed) return;
+        rethrow;
+      }
 
       if (_isDisposed) {
-        player.setVolume(0);
-        player.stop();
-        player.dispose();
+        _safeDisposePlayer(player);
         _player = null;
         _videoController = null;
         return;
       }
 
       // 音量重设为 100%
-      await player.setVolume(100.0);
-
-      // 5. 音画流完全对齐就绪后，正式统一开播！彻底消除声音偷跑与二次从头播放
-      await player.play();
+      try {
+        await player.setVolume(100.0);
+        // 5. 音画流完全对齐就绪后，正式统一开播！彻底消除声音偷跑与二次从头播放
+        await player.play();
+      } catch (_) {}
 
       if (!_isDisposed) {
         state = state.copyWith(
@@ -536,7 +551,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
       if (_isDisposed) return;
 
       // 持久化用户选择的画质偏好，后续打开任何视频优先尝试该画质
-      await ref.read(storageServiceProvider).setPreferredQuality(targetQn);
+      await _storageService.setPreferredQuality(targetQn);
 
       state = state.copyWith(
         currentUrl: playInfo.playUrl,
@@ -660,6 +675,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 异步并行获取附加数据 (分P选集、在线人数、点赞状态)
   Future<void> _loadExtraVideoData(String bvid, int currentCid) async {
+    if (_isDisposed) return;
     try {
       final partsFuture = _repository.fetchPageList(bvid);
       final onlineFuture = _repository.fetchOnlineTotal(bvid: bvid, cid: currentCid);
@@ -687,7 +703,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
         isLiked: hasLike,
       );
     } catch (e) {
-      debugPrint('[PlayerNotifier] 获取额外数据异常: $e');
+      if (!_isDisposed) {
+        debugPrint('[PlayerNotifier] 获取额外数据异常: $e');
+      }
     }
   }
 
@@ -708,7 +726,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
     );
 
     try {
-      final preferredQn = ref.read(storageServiceProvider).preferredQuality;
+      final preferredQn = _storageService.preferredQuality;
       final playInfo = await _repository.fetchPlayUrl(
         bvid: bvid,
         cid: targetPart.cid,

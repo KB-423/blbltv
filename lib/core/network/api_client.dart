@@ -102,6 +102,12 @@ class ApiClient {
             }
           }
 
+          // 直播专区专用 Referer 与 Origin 防风控与超时拦截
+          if (options.uri.host.contains('live.bilibili.com')) {
+            options.headers['Referer'] = 'https://live.bilibili.com/';
+            options.headers['Origin'] = 'https://live.bilibili.com';
+          }
+
           return handler.next(options);
         },
         onResponse: (response, handler) async {

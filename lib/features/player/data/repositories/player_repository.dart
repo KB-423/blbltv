@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
@@ -335,6 +336,10 @@ class PlayerRepository {
           'sub_type': 0,
           if (csrf.isNotEmpty) 'csrf': csrf,
         },
+        options: Options(
+          sendTimeout: const Duration(seconds: 4),
+          receiveTimeout: const Duration(seconds: 4),
+        ),
       );
       debugPrint(
           '[PlayerRepository] 成功上报播放心跳: bvid=$bvid, playedTime=$playedTime');

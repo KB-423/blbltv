@@ -15,15 +15,25 @@ class LiveRepository {
     int page = 1,
   }) async {
     try {
-      final res = await _apiClient.getWbi<Map<String, dynamic>>(
-        ApiConstants.liveList,
-        queryParameters: {
-          'platform': 'web',
-          'web_location': '444.7',
-          'page': page,
-          'page_size': 30,
-        },
-      );
+      dynamic res;
+      try {
+        res = await _apiClient.getWbi<Map<String, dynamic>>(
+          ApiConstants.liveList,
+          queryParameters: {
+            'platform': 'web',
+            'web_location': '444.7',
+          },
+        );
+      } catch (wbiErr) {
+        debugPrint('[LiveRepository] Wbi 获取直播列表超时/异常，平滑降级标准直连: $wbiErr');
+        res = await _apiClient.get<Map<String, dynamic>>(
+          ApiConstants.liveList,
+          queryParameters: {
+            'platform': 'web',
+            'web_location': '444.7',
+          },
+        );
+      }
 
       final data = res.data;
       if (data != null && data['code'] == 0 && data['data'] != null) {

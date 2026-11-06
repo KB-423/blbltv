@@ -59,8 +59,10 @@ class _TvImmersiveHomeScreenState extends ConsumerState<TvImmersiveHomeScreen> {
 
   @override
   void deactivate() {
+    _pureModeTimer?.cancel();
     if (_activeBvid != null) {
       try {
+        ref.read(playerProvider(_activeBvid!).notifier).pauseAndStopAudio();
         ref.read(playerProvider(_activeBvid!).notifier).disposePlayer();
       } catch (_) {}
     }
