@@ -20,11 +20,12 @@ class TvTheme {
   static const Color tvSurfaceElevated = Color(0xFF282C3E);
 
   // Apple TV 纯净毛玻璃 (Liquid Glass) 与微光色阶
-  static const Color tvGlassBackground = Color(0x18FFFFFF); // 10% 通透悬浮
-  static const Color tvGlassSurface = Color(0x28161824);    // 浮层深色半透
-  static const Color tvGlassBorder = Color(0x24FFFFFF);     // 14% 极细漫白边
-  static const Color tvGlassBorderActive = Color(0x8AFFFFFF); // 54% 亮白微光边
-  static const Color tvGlowWhite = Color(0x35FFFFFF);       // 纯白柔和漫反射光晕
+  static const Color tvGlassBackground = Color(0x1AFFFFFF); // 10%~12% 通透悬浮
+  static const Color tvGlassSurface = Color(0x22FFFFFF);    // 14% 晶莹白色半透
+  static const Color tvGlassSurfaceFocused = Color(0x38FFFFFF); // 22% 获焦白光表面
+  static const Color tvGlassBorder = Color(0x30FFFFFF);     // 19% 漫白反光边
+  static const Color tvGlassBorderActive = Color(0xFFFFFFFF); // 100% 亮白微光边
+  static const Color tvGlowWhite = Color(0x40FFFFFF);       // 纯白柔和漫反射光晕
 
   // 边框与阴影色阶 (向下兼容)
   static const Color tvCardBorder = tvGlassBorder;
@@ -33,10 +34,11 @@ class TvTheme {
   static const Color tvFocusGlow = tvGlowWhite;
   static const Color tvDivider = Color(0x18FFFFFF);
 
-  // 统一圆角规范
-  static const double radiusCard = 14.0;
-  static const double radiusPill = 20.0;
-  static const double radiusTile = 10.0;
+  // 统一圆角规范 (Apple TV 大圆角与胶囊规范)
+  static const double radiusCard = 16.0;
+  static const double radiusPill = 24.0;
+  static const double radiusCapsule = 32.0;
+  static const double radiusTile = 12.0;
 
   // 大屏文字对比度标准 (符合 WCAG AA 级大屏远距离观影标准)
   static const Color tvTextPrimary = Color(0xFFFFFFFF);

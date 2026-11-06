@@ -36,34 +36,56 @@ class TvVideoCard extends StatelessWidget {
       builder: (context, state, child) {
         final isFocused = state.focused;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
           transform: isFocused
-              ? Matrix4.diagonal3Values(1.03, 1.03, 1.0)
+              ? Matrix4.diagonal3Values(1.05, 1.05, 1.0)
               : Matrix4.identity(),
           transformAlignment: Alignment.center,
           decoration: BoxDecoration(
             color: isFocused
-                ? const Color(0xFF1E2130)
-                : const Color(0xFF141622),
+                ? Colors.white.withValues(alpha: 0.20)
+                : Colors.white.withValues(alpha: 0.08),
+            gradient: isFocused
+                ? LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.26),
+                      Colors.white.withValues(alpha: 0.14),
+                    ],
+                  )
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.white.withValues(alpha: 0.11),
+                      Colors.white.withValues(alpha: 0.05),
+                    ],
+                  ),
             borderRadius: BorderRadius.circular(TvTheme.radiusCard),
             border: Border.all(
-              color: isFocused ? Colors.white : TvTheme.tvGlassBorder,
+              color: isFocused ? Colors.white : Colors.white.withValues(alpha: 0.18),
               width: isFocused ? 2.0 : 0.8,
             ),
             boxShadow: isFocused
                 ? [
                     BoxShadow(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      blurRadius: 18,
+                      color: Colors.white.withValues(alpha: 0.35),
+                      blurRadius: 24,
                       spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      blurRadius: 30,
+                      offset: const Offset(0, 12),
                     ),
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.32),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.28),
+                      blurRadius: 14,
+                      offset: const Offset(0, 5),
                     ),
                   ],
           ),

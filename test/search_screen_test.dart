@@ -93,9 +93,10 @@ void main() {
     expect(find.text('黑神话悟空 结果视频 0'), findsOneWidget);
     expect(find.text('黑神话悟空 结果视频 7'), findsOneWidget);
 
-    // 测试输入框手动输入与确定
-    await tester.enterText(find.byType(TextField), 'Flutter大屏');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
+    // 测试输入框设置关键词与点击搜索按钮提交
+    final textField = tester.widget<TextField>(find.byType(TextField));
+    textField.controller?.text = 'Flutter大屏';
+    await tester.tap(find.text('搜索'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

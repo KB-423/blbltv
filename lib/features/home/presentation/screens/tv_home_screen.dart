@@ -24,8 +24,8 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
-  // 默认进入常规 4 列 Apple TV 微光网格流，保持开屏静音与视觉清爽
-  bool _isImmersiveMode = false;
+  // 默认进入全新沉浸式开播流 (开屏即播、导航旁边浮空推荐流、上下切流、5秒自动纯享)
+  bool _isImmersiveMode = true;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _firstCardFocusNode =
       FocusNode(debugLabel: 'HomeFirstCardFocus');
@@ -46,8 +46,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       _isImmersiveMode = immersive;
       _hasInitialFocused = false;
     });
-    // 沉浸流模式下自动隐藏左侧导轨，满屏呈现；切回网格时恢复导轨
-    ref.read(navRailVisibilityProvider.notifier).setVisible(!immersive);
+    ref.read(navRailVisibilityProvider.notifier).setVisible(true);
     if (!immersive) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _tryInitialFocus();

@@ -82,16 +82,11 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
       },
       child: Scaffold(
         backgroundColor: TvTheme.tvBackground,
-        body: Row(
+        body: Stack(
+          fit: StackFit.expand,
           children: [
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              child: isNavRailVisible
-                  ? TvNavRail(currentPath: widget.state.matchedLocation)
-                  : const SizedBox.shrink(),
-            ),
-            Expanded(
+            // 全屏动态页面内容 (Edge-to-Edge 100% 满幅渲染)
+            Positioned.fill(
               child: Focus(
                 onKeyEvent: (node, event) {
                   // 键盘 Escape 兜底：平滑切回左侧导轨 (Android 物理返回键已由 PopScope 纳管)
@@ -109,6 +104,34 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
                   return KeyEventResult.ignored;
                 },
                 child: widget.child,
+              ),
+            ),
+
+            // Apple TV 悬浮折叠微光侧边导轨 (选项 B：左侧浮空无界毛玻璃)
+            Positioned(
+              left: 16,
+              top: 16,
+              bottom: 16,
+              child: AnimatedSlide(
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                offset: isNavRailVisible
+                    ? Offset.zero
+                    : const Offset(-1.25, 0.0),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  opacity: isNavRailVisible ? 1.0 : 0.0,
+                  child: IgnorePointer(
+                    ignoring: !isNavRailVisible,
+                    child: ExcludeFocus(
+                      excluding: !isNavRailVisible,
+                      child: TvNavRail(
+                        currentPath: widget.state.matchedLocation,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],

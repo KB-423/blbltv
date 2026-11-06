@@ -24,10 +24,13 @@ class TvScaffold extends StatelessWidget {
     final size = MediaQuery.of(context).size;
     final bool isCompact = size.height <= 650;
 
+    final double leftPadding = isCompact ? 172.0 : 196.0;
     final responsivePadding = padding ??
-        EdgeInsets.symmetric(
-          horizontal: isCompact ? 24.0 : 36.0,
-          vertical: isCompact ? 16.0 : 24.0,
+        EdgeInsets.fromLTRB(
+          leftPadding,
+          isCompact ? 16.0 : 24.0,
+          isCompact ? 24.0 : 36.0,
+          isCompact ? 16.0 : 24.0,
         );
 
     return Container(

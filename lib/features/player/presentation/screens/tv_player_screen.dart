@@ -126,6 +126,8 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       notifier.closePartDrawer();
     } else if (playerState.showQualityPanel) {
       notifier.closeQualityPanel();
+    } else if (playerState.showControls) {
+      notifier.hideControls();
     } else {
       _isExiting = true;
       // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音，画面保留最后一帧出栈过渡
@@ -327,18 +329,10 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       }
     });
 
-    // 仅当分P选集抽屉或画质面板激活时拦截返回键；常规播放或控制条显示时直接放行，实现1按即退
-    final canDirectlyPop =
-        !playerState.showPartDrawer && !playerState.showQualityPanel;
-
     return PopScope(
-      canPop: canDirectlyPop,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          // 已经由系统返回键或手势直接出栈，第 0 毫秒立即掐断音频
-          notifier.pauseAndStopAudio();
-          return;
-        }
+        if (didPop) return;
         _handleBack(context, playerState, notifier);
       },
       child: Scaffold(

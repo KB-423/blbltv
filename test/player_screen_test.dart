@@ -35,6 +35,11 @@ class _FakePlayerNotifier extends PlayerNotifier {
   }
 
   @override
+  void hideControls() {
+    state = state.copyWith(showControls: false);
+  }
+
+  @override
   Future<void> changeQuality(int targetQn) async {
     changedQn = targetQn;
     state = state.copyWith(

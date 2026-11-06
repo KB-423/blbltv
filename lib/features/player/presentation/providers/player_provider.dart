@@ -622,6 +622,13 @@ class PlayerNotifier extends Notifier<PlayerState> {
     }
   }
 
+  /// 隐藏控制栏
+  void hideControls() {
+    if (_isDisposed) return;
+    _hideControlsTimer?.cancel();
+    state = state.copyWith(showControls: false);
+  }
+
   void showControlsTemporarily() {
     if (_isDisposed) return;
     state = state.copyWith(showControls: true);

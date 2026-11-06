@@ -4,6 +4,7 @@ import 'package:dpad/dpad.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../router/route_paths.dart';
+import '../../../../widgets/glass_container.dart';
 import '../../../../widgets/tv_image.dart';
 import '../../../user/presentation/providers/auth_provider.dart';
 import '../providers/nav_rail_focus_provider.dart';
@@ -75,24 +76,13 @@ class TvNavRail extends ConsumerWidget {
     final bool isCompact = size.width <= 1000 || size.height <= 650;
     final double railWidth = isCompact ? 148.0 : 168.0;
 
-    return Container(
+    return GlassContainer(
       width: railWidth,
-      margin: const EdgeInsets.fromLTRB(14, 16, 8, 16),
-      decoration: BoxDecoration(
-        color: TvTheme.tvGlassBackground,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: TvTheme.tvGlassBorder,
-          width: 0.8,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(2, 4),
-          ),
-        ],
-      ),
+      blur: 24.0,
+      opacity: 0.16,
+      borderOpacity: 0.32,
+      borderWidth: 1.0,
+      borderRadius: BorderRadius.circular(24),
       padding: EdgeInsets.symmetric(
         horizontal: isCompact ? 8 : 10,
         vertical: isCompact ? 16 : 20,
@@ -107,6 +97,7 @@ class TvNavRail extends ConsumerWidget {
               bottom: isCompact ? 16 : 22,
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
                   Icons.tv_rounded,
@@ -114,13 +105,16 @@ class TvNavRail extends ConsumerWidget {
                   size: isCompact ? 20 : 22,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Bili TV',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: isCompact ? 16 : 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
+                Flexible(
+                  child: Text(
+                    'Bili TV',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: isCompact ? 16 : 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
               ],
@@ -239,19 +233,20 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
 
         if (isFocused) {
           // 获焦：浮起半透明纯白微光胶囊 + 柔和白色漫反射阴影
-          bgColor = Colors.white.withValues(alpha: 0.18);
-          border = Border.all(color: Colors.white, width: 1.2);
+          bgColor = Colors.white.withValues(alpha: 0.24);
+          border = Border.all(color: Colors.white, width: 1.5);
           shadows = [
             BoxShadow(
-              color: Colors.white.withValues(alpha: 0.22),
-              blurRadius: 12,
+              color: Colors.white.withValues(alpha: 0.32),
+              blurRadius: 16,
               spreadRadius: 1,
             ),
           ];
         } else if (isSelected) {
           // 选中但未落焦：淡雅轻白底
-          bgColor = Colors.white.withValues(alpha: 0.08);
-          border = Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.8);
+          bgColor = Colors.white.withValues(alpha: 0.12);
+          border =
+              Border.all(color: Colors.white.withValues(alpha: 0.28), width: 0.8);
         } else {
           bgColor = Colors.transparent;
         }
@@ -261,7 +256,7 @@ class _TvNavRailTileState extends ConsumerState<_TvNavRailTile> {
           padding: EdgeInsets.symmetric(horizontal: isCompact ? 10 : 12),
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(TvTheme.radiusTile),
             border: border,
             boxShadow: shadows,
           ),
