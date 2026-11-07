@@ -141,62 +141,62 @@ void main() {
       expect(online, '1.2万');
     });
 
-    test('selectBestCodecTrack prioritizes HEVC when available across all resolutions', () {
+    test('selectBestCodecTrack prioritizes HEVC when available across all resolutions', () async {
       final tracks = [
         {'id': 120, 'codecid': 7, 'codecs': 'avc1.640034', 'bandwidth': 5000000},
         {'id': 120, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 3000000},
         {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 3500000},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 120);
       expect(selected?['codecid'], 12);
       expect(selected?['codecs'], 'hev1.1.6.L120.90');
     });
 
-    test('selectBestCodecTrack prioritizes AV1 over AVC for 4K (id: 120)', () {
+    test('selectBestCodecTrack prioritizes AV1 over AVC for 4K (id: 120)', () async {
       final tracks = [
         {'id': 120, 'codecid': 7, 'codecs': 'avc1.640034', 'bandwidth': 8000000},
         {'id': 120, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 3000000},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 120);
       expect(selected?['codecid'], 13);
       expect(selected?['codecs'], 'av01.0.08M.08');
     });
 
-    test('selectBestCodecTrack prioritizes AVC over AV1 for 1080P (id: 80)', () {
+    test('selectBestCodecTrack prioritizes AVC over AV1 for 1080P (id: 80)', () async {
       final tracks = [
         {'id': 80, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 1500000},
         {'id': 80, 'codecid': 7, 'codecs': 'avc1.640033', 'bandwidth': 2000000},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 80);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 80);
       expect(selected?['codecid'], 7);
       expect(selected?['codecs'], 'avc1.640033');
     });
 
-    test('selectBestCodecTrack uses bandwidth as tie-breaker for identical codecs', () {
+    test('selectBestCodecTrack uses bandwidth as tie-breaker for identical codecs', () async {
       final tracks = [
         {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 3000000},
         {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 6000000},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 120);
       expect(selected?['bandwidth'], 6000000);
     });
 
-    test('selectBestCodecTrack filters out tracks exceeding hardware limits (4096x2304) such as 8K', () {
+    test('selectBestCodecTrack filters out tracks exceeding hardware limits (4096x2304) such as 8K', () async {
       final tracks = [
         {'id': 127, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'width': 7680, 'height': 4320, 'bandwidth': 20000000},
         {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'width': 3840, 'height': 2160, 'bandwidth': 8000000},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 127);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 127);
       expect(selected?['id'], 120);
       expect(selected?['width'], 3840);
     });
 
-    test('selectBestCodecTrack filters out 4K 120fps tracks that exceed hardware blocks-per-second limit', () {
+    test('selectBestCodecTrack filters out 4K 120fps tracks that exceed hardware blocks-per-second limit', () async {
       final tracks = [
         {'id': 120, 'codecid': 12, 'codecs': 'hvc1.1.6.L156.90', 'width': 3840, 'height': 2160, 'frameRate': '120.000', 'bandwidth': 4128114},
         {'id': 116, 'codecid': 12, 'codecs': 'hvc1.1.6.L150.90', 'width': 1920, 'height': 1080, 'frameRate': '60.000', 'bandwidth': 1109528},
       ];
-      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      final selected = await playerRepository.selectBestCodecTrack(tracks, 120);
       expect(selected?['id'], 116);
       expect(selected?['width'], 1920);
       expect(selected?['frameRate'], '60.000');

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
+import '../../../../core/services/codec_capability_service.dart';
 import '../../../../core/services/display_capability_service.dart';
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../models/video/play_url_model.dart';
@@ -102,6 +103,7 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final displayCapability = ref.watch(displayCapabilityProvider);
+    final codecCapability = ref.watch(codecCapabilityProvider);
 
     final bool isLoggedIn = authState.isLoggedIn && authState.user != null;
     final bool isVip = authState.user?.vipStatus == 1;
@@ -225,8 +227,8 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
 
                       // 0. 设备硬件硬解支持判断 (8K 或超吞吐极限的 4K 120fps 等)
                       final bool is8kItem = item.qn == 127;
-                      final bool isHwSupportedByMedia =
-                          item.isHardwareSupported && !is8kItem;
+                      final bool isHwSupportedByMedia = item.isHardwareSupported &&
+                          (!is8kItem || codecCapability.supports8k);
 
                       // 1. 设备硬件 HDR / 杜比视界支持判断
                       final bool isDolbyItem = item.qn == 126;
@@ -252,8 +254,8 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
                         lockBadge = '设备不支持';
                         if (!isHwSupportedByMedia) {
                           lockReason = is8kItem
-                              ? '当前电视芯片硬件最高支持4K硬解，暂不支持8K超高清解码'
-                              : '当前电视芯片硬件最高支持4K 60fps硬解，暂不支持该稿件的120fps超高帧率';
+                              ? '当前设备芯片硬件最高支持4K硬解，暂不支持8K超高清解码'
+                              : '当前设备芯片硬件暂不支持该清晰度的超规格流（如120fps超高帧率）';
                         } else {
                           lockReason =
                               '当前设备或显示屏不支持 ${isDolbyItem ? "杜比视界" : "HDR10"} 硬件渲染';

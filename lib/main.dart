@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
 import 'package:media_kit/media_kit.dart';
 
+import 'core/services/codec_capability_service.dart';
 import 'core/services/display_capability_service.dart';
 import 'core/storage/storage_service.dart';
 import 'core/theme/tv_theme.dart';
@@ -16,12 +17,14 @@ void main() async {
 
   final storageService = await StorageService.init();
   final displayCapability = await DisplayCapabilityService.detect();
+  final codecCapability = await CodecCapabilityService.detect();
 
   runApp(
     ProviderScope(
       overrides: [
         storageServiceProvider.overrideWithValue(storageService),
         rawDisplayCapabilityProvider.overrideWithValue(displayCapability),
+        codecCapabilityProvider.overrideWithValue(codecCapability),
       ],
       child: const BiliTvApp(),
     ),

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/services/codec_capability_service.dart';
 import '../../../../core/utils/video_url_resolver.dart';
 import '../../../../models/video/play_url_model.dart';
 import '../../../../models/video/video_part_model.dart';
@@ -10,8 +11,12 @@ import '../../../../models/video/video_part_model.dart';
 /// 视频播放器数据仓库
 class PlayerRepository {
   final ApiClient _apiClient;
+  final DeviceCodecCapability _codecCapability;
 
-  PlayerRepository(this._apiClient);
+  PlayerRepository(
+    this._apiClient, {
+    DeviceCodecCapability? codecCapability,
+  }) : _codecCapability = codecCapability ?? const DeviceCodecCapability();
 
   /// 获取多 P 选集分 P 列表
   Future<List<VideoPartItem>> fetchPageList(String bvid) async {
@@ -155,15 +160,18 @@ class PlayerRepository {
   }
 
   /// 获取指定清晰度的视频流播放链接与支持的清晰度列表
-  /// [fnval: 3024] 开启 DASH(16) + HDR(64) + 4K(128) + 杜比音效(256) + 杜比视界(512) + AV1(2048)
-  /// 彻底排除 bit 1024 (8K)，避免电视硬件解码器因显存限制 (4096x2304) 报 ERROR_NO_MEMORY 导致黑屏
+  /// 动态适配不同设备物理芯片的硬解能力 (8K / 4K / 1080P)
   Future<VideoPlayInfo> fetchPlayUrl({
     required String bvid,
     required int cid,
     int qn = 120, // 默认申请高规格画质，由服务端根据会员身份自动协商下发
   }) async {
-    // 电视 SOC 硬件硬解上限为 4K (4096x2304)，超出部分强制安全限制在 120(4K) / 125(HDR)
-    final int safeQn = (qn == 127) ? 120 : qn;
+    // 动态硬件上限限制：若请求清晰度超过设备硬件硬解能力上限，自动安全降级
+    final int maxSupportedQn = _codecCapability.maxSupportedQn;
+    final int safeQn = qn > maxSupportedQn ? maxSupportedQn : qn;
+
+    // 动态协商 fnval：若设备支持 8K 硬解，开启 4048(带 8K)；若设备最高支持 4K/1080P，开启 3024(不带 8K)
+    final int appropriateFnval = _codecCapability.appropriateFnval;
     try {
       final res = await _apiClient.getWbi<Map<String, dynamic>>(
         ApiConstants.videoPlayUrl,
@@ -171,7 +179,7 @@ class PlayerRepository {
           'bvid': bvid,
           'cid': cid,
           'qn': safeQn,
-          'fnval': 3024, // 16(DASH) + 64(HDR) + 128(4K) + 256(杜比音效) + 512(杜比视界) + 2048(AV1) - 排除 1024(8K)
+          'fnval': appropriateFnval,
           'fourk': 1,
           'fnver': 0,
         },
@@ -193,11 +201,28 @@ class PlayerRepository {
                 ? (playData['dash']['video'] as List)
                 : const [];
 
-        // 统计各清晰度是否有硬件支持的流轨 (排除超过 4K 60fps 硬件硬解吞吐极限的超规格轨)
-        final Set<int> hardwareSupportedQns = {};
+        // 动态校验流轨硬件硬解支持情况
+        final List<Map<String, dynamic>> rawDashTracks = [];
         for (final v in rawVideoList) {
-          if (v is Map<String, dynamic> && isHardwareSupported(v)) {
-            final id = v['id'] as int? ?? 0;
+          if (v is Map<String, dynamic>) {
+            rawDashTracks.add(v);
+          }
+        }
+        final List<bool> dashTrackSupport =
+            await CodecCapabilityService.filterSupportedTracks(
+          rawDashTracks,
+          capability: _codecCapability,
+        );
+
+        // 统计各清晰度是否有当前设备硬件硬解支持的流轨
+        // 若当前稿件的某个清晰度所有轨均超出硬件硬解吞吐（例如某稿件仅提供 4K 120fps 超规格流，而电视硬件最高仅支持 4K 60fps），
+        // 则动态将该清晰度标记为不支持，防止用户误点黑屏
+        final Set<int> hardwareSupportedQns = {};
+        for (int i = 0; i < rawDashTracks.length; i++) {
+          final isSupported =
+              i < dashTrackSupport.length ? dashTrackSupport[i] : true;
+          if (isSupported) {
+            final id = rawDashTracks[i]['id'] as int? ?? 0;
             if (id > 0) {
               hardwareSupportedQns.add(id);
             }
@@ -211,8 +236,9 @@ class PlayerRepository {
               ? acceptDescList[i].toString()
               : _mapQnToDescription(q);
 
-          // 8K(127) 或该清晰度无电视硬件硬解轨时标记为不支持
-          final bool isSupported = q != 127 &&
+          // 8K(127) 依据设备是否支持 8K 硬解决定；
+          // 其他清晰度依据当前稿件是否有硬件支持流决定
+          final bool isSupported = (q != 127 || _codecCapability.supports8k) &&
               (hardwareSupportedQns.isEmpty || hardwareSupportedQns.contains(q));
           qualities.add(VideoQualityItem(
             qn: q,
@@ -231,9 +257,8 @@ class PlayerRepository {
           final List<dynamic> videoList = dash['video'] ?? [];
           final List<dynamic> audioList = dash['audio'] ?? [];
 
-          // 核心优化：按硬件解码友好度选择最佳编码轨 (HEVC > AVC > AV1)
-          // 彻底解决 B 站 4K 默认下发 AV1 导致移动端/电视因缺少 AV1 硬解走 CPU 软解严重掉帧的问题
-          selectedVideo = _selectBestCodecTrack(videoList, qn);
+          // 核心优化：动态校验并优选具备最高硬件硬解兼容性的编码轨
+          selectedVideo = await _selectBestCodecTrack(videoList, qn);
 
           if (selectedVideo != null) {
             // 通过 VideoUrlResolver 剔除并过滤 MCDN / PCDN 节点，重写为官方高速镜像
@@ -283,45 +308,12 @@ class PlayerRepository {
     }
   }
 
-  /// 解析 B 站 DASH 流的帧率 (例如 "120.000", "60.000", "30.000", "120000/1000")
-  static double _parseFrameRate(dynamic frameRate) {
-    if (frameRate == null) return 0.0;
-    if (frameRate is num) return frameRate.toDouble();
-    final str = frameRate.toString().trim();
-    if (str.isEmpty) return 0.0;
-    if (str.contains('/')) {
-      final parts = str.split('/');
-      final num = double.tryParse(parts[0]) ?? 0.0;
-      final den = double.tryParse(parts[1]) ?? 1.0;
-      return den > 0 ? num / den : 0.0;
-    }
-    return double.tryParse(str) ?? 0.0;
-  }
-
-  /// 校验视频轨是否在电视芯片硬件硬解能力范围内 (MediaTek Pentonic MT5877/MT9655)
-  /// 1. 分辨率上限: 4096x2304 (超出将导致 MediaCodec 显存耗尽报 ERROR_NO_MEMORY)
-  /// 2. 硬件吞吐量上限: 2,211,840 宏块/秒 (blocks/sec)
-  ///    - 4K (3840x2160) 单帧 32,400 宏块，在 60fps 下为 1,944,000 blocks/sec (完全硬件解码流畅支持)
-  ///    - 4K 120fps (如 8K 降采稿件) 达到 3,888,000 blocks/sec，硬件驱动报 ERR_CODE_FRMRATE_NOT_SUPPORT 崩溃黑屏 (过滤)
-  ///    - 1080P (1920x1080) 单帧 8,160 宏块，在 120fps 下为 979,200 blocks/sec (完全硬件解码支持)
-  static bool isHardwareSupported(Map<String, dynamic> track) {
-    final width = track['width'] as int? ?? 0;
-    final height = track['height'] as int? ?? 0;
-    if (width <= 0 || height <= 0) return true;
-
-    // 1. 分辨率硬解上限
-    if (width > 4096 || height > 2304) return false;
-
-    // 2. 吞吐性能点校验
-    final fps = _parseFrameRate(track['frameRate'] ?? track['frame_rate']);
-    if (fps > 0) {
-      final blocksPerFrame = ((width + 15) ~/ 16) * ((height + 15) ~/ 16);
-      final blocksPerSec = blocksPerFrame * fps;
-      if (blocksPerSec > 2211840) {
-        return false;
-      }
-    }
-    return true;
+  /// 校验视频轨是否在当前设备硬件硬解能力范围内 (动态自适应)
+  bool isHardwareSupported(Map<String, dynamic> track) {
+    return CodecCapabilityService.fallbackCheck(
+      track,
+      capability: _codecCapability,
+    );
   }
 
   /// 从满足目标清晰度的多个轨中，智能优选具备最高硬件硬解兼容性的编码轨
@@ -334,40 +326,44 @@ class PlayerRepository {
   ///    而 AVC (H.264) 硬件解码模块上限为 Level 5.2，在 4K 60fps 超大码率下会造成高达 70%+ 的灾难性丢帧！
   /// 3. 常规清晰度 (targetQn < 116，如 1080P 30fps 及以下)：
   ///    AVC (codecid: 7) -> 250分，AV1 (codecid: 13) -> 100分，兼顾老款无 AV1 硬解的电视盒子。
-  Map<String, dynamic>? _selectBestCodecTrack(
+  Future<Map<String, dynamic>?> _selectBestCodecTrack(
     List<dynamic> videoList,
     int targetQn,
-  ) {
+  ) async {
+    final List<Map<String, dynamic>> candidateTracks = [];
     for (final v in videoList) {
       if (v is Map<String, dynamic>) {
+        candidateTracks.add(v);
         debugPrint(
           '[PlayerRepository] 候选轨: id=${v['id']}, codecid=${v['codecid']}, frameRate=${v['frameRate'] ?? v['frame_rate']}, ${v['width']}x${v['height']}, codecs=${v['codecs']}, bandwidth=${v['bandwidth']}',
         );
       }
     }
 
-    // 关键硬件保护：过滤超过电视芯片硬解极限 (4096x2304 / 4K 120fps 超吞吐) 的超规格视频轨
-    // 彻底避免 MediaCodec 报 ERROR_NO_MEMORY 或 ERR_CODE_FRMRATE_NOT_SUPPORT 崩溃导致黑屏
+    // 关键硬件保护：调用 CodecCapabilityService.filterSupportedTracks 批量校验
+    // 动态调用 Android MediaCodecList 校验，防止超规格轨 (8K 或超吞吐极限的 4K 120fps) 导致硬件驱动报错崩溃
+    final List<bool> supportList =
+        await CodecCapabilityService.filterSupportedTracks(
+      candidateTracks,
+      capability: _codecCapability,
+    );
+
     final List<Map<String, dynamic>> validTracks = [];
-    for (final v in videoList) {
-      if (v is Map<String, dynamic>) {
-        if (!isHardwareSupported(v)) {
-          debugPrint(
-            '[PlayerRepository] 过滤超出硬件解码极限的超规格轨: id=${v['id']}, ${v['width']}x${v['height']}, frameRate=${v['frameRate'] ?? v['frame_rate']}, codecs=${v['codecs']}',
-          );
-          continue;
-        }
-        validTracks.add(v);
+    for (int i = 0; i < candidateTracks.length; i++) {
+      final v = candidateTracks[i];
+      final isSupported = i < supportList.length ? supportList[i] : true;
+      if (!isSupported) {
+        debugPrint(
+          '[PlayerRepository] 过滤超出硬件解码极限的超规格轨: id=${v['id']}, ${v['width']}x${v['height']}, frameRate=${v['frameRate'] ?? v['frame_rate']}, codecs=${v['codecs']}',
+        );
+        continue;
       }
+      validTracks.add(v);
     }
 
     if (validTracks.isEmpty) {
       // 极端兜底：如果全部轨都被过滤，回退至原列表
-      for (final v in videoList) {
-        if (v is Map<String, dynamic>) {
-          validTracks.add(v);
-        }
-      }
+      validTracks.addAll(candidateTracks);
     }
 
     final List<Map<String, dynamic>> matchedTracks = [];
@@ -443,7 +439,7 @@ class PlayerRepository {
 
   /// 供单元测试验证解码轨优选评分策略
   @visibleForTesting
-  Map<String, dynamic>? selectBestCodecTrack(
+  Future<Map<String, dynamic>?> selectBestCodecTrack(
     List<dynamic> videoList,
     int targetQn,
   ) =>
@@ -517,5 +513,6 @@ class PlayerRepository {
 /// Riverpod Provider
 final playerRepositoryProvider = Provider<PlayerRepository>((ref) {
   final client = ref.watch(apiClientProvider);
-  return PlayerRepository(client);
+  final codecCap = ref.watch(codecCapabilityProvider);
+  return PlayerRepository(client, codecCapability: codecCap);
 });
