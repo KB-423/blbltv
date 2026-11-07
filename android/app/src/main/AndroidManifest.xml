@@ -40,7 +40,21 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 深度链接 Intent 过滤器 (支持 bili://player/BVxxxx 直接开流) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bili" />
+            </intent-filter>
         </activity>
+
+        <!-- Android TV 关键优化：在电视端禁用 Impeller Vulkan，回退使用经过电视SOC工业级验证的 Skia OpenGL ES。
+             彻底根治 Mali GPU (MediaTek) 上 mali_gralloc 内存分配失败 (format 0x38) 造成的严重丢帧与卡顿 -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

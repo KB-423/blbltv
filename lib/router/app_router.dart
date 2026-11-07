@@ -25,6 +25,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: RoutePaths.home,
+    redirect: (context, state) {
+      final path = state.uri.path;
+      // 深度链接重定向兼容：支持 bili://player/BVxxxx 或 /BVxxxx 直接导向播放器
+      if (path.length > 3 && (path.startsWith('/BV') || path.startsWith('/bv'))) {
+        return RoutePaths.playerWithBvid(path.substring(1));
+      }
+      return null;
+    },
     routes: [
       // 顶级重定向
       GoRoute(

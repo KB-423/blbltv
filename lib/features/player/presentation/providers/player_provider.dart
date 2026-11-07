@@ -239,10 +239,10 @@ class PlayerNotifier extends Notifier<PlayerState> {
     if (_isDisposed) return;
 
     try {
-      // 通过 PlayerConfiguration 扩大 4K 高码率解复用网络缓存 (64MB)
+      // 通过 PlayerConfiguration 扩大 4K 高码率解复用网络缓存 (128MB)
       final player = Player(
         configuration: const PlayerConfiguration(
-          bufferSize: 64 * 1024 * 1024,
+          bufferSize: 128 * 1024 * 1024,
         ),
       );
       // 立即挂载底层实例句柄，确保任何中途退出或销毁操作都能立即调用 player.stop() 与 dispose()
@@ -258,13 +258,13 @@ class PlayerNotifier extends Notifier<PlayerState> {
       // 关键：初始锁定暂停状态，严禁底层在未完成音画混合时偷跑音频
       await platform?.setProperty('pause', 'yes');
 
-      // 0. 网络高清流预读与大屏解复用器性能调优
-      // 确保在网络通畅时，底层积极向前预读 45 秒音视频数据，彻底杜绝播放卡顿
-      await platform?.setProperty('demuxer-readahead-secs', '45');
-      await platform?.setProperty('demuxer-max-bytes', '${96 * 1024 * 1024}');
-      await platform?.setProperty('demuxer-max-back-bytes', '${32 * 1024 * 1024}');
-      await platform?.setProperty('cache-secs', '45');
-      await platform?.setProperty('network-timeout', '10');
+      // 0. 网络高清流预读与大屏解复用器性能调优 (专为 4K 60fps 高码率调优)
+      // 扩大解复用缓存与预读时间，彻底杜绝外挂音轨因网络抖动引起音视频时间戳失调
+      await platform?.setProperty('demuxer-readahead-secs', '60');
+      await platform?.setProperty('demuxer-max-bytes', '${160 * 1024 * 1024}');
+      await platform?.setProperty('demuxer-max-back-bytes', '${48 * 1024 * 1024}');
+      await platform?.setProperty('cache-secs', '60');
+      await platform?.setProperty('network-timeout', '15');
       await platform?.setProperty('force-seekable', 'yes');
 
       // 0.1 强制显式启用 Android 原生 mediacodec 直通硬件解码
@@ -274,6 +274,20 @@ class PlayerNotifier extends Notifier<PlayerState> {
       } else {
         await platform?.setProperty('hwdec', 'auto');
       }
+
+      // 0.2 TV SOC (Mali GPU) 4K 极速渲染着色器配置 (解决 4K 严重丢帧核心方案)
+      // 启用 profile=fast 并禁用耗费算力的抖动与高阶滤波算法，避免每秒 5 亿像素渲染拖垮电视 GPU
+      await platform?.setProperty('profile', 'fast');
+      await platform?.setProperty('scale', 'bilinear');
+      await platform?.setProperty('cscale', 'bilinear');
+      await platform?.setProperty('dscale', 'bilinear');
+      await platform?.setProperty('dither', 'no');
+      await platform?.setProperty('dither-depth', 'no');
+      await platform?.setProperty('deband', 'no');
+      await platform?.setProperty('correct-downscaling', 'no');
+      await platform?.setProperty('linear-downscaling', 'no');
+      await platform?.setProperty('sigmoid-upscaling', 'no');
+      await platform?.setProperty('hdr-compute-peak', 'no');
 
       // 1. Android 电视平台专用音频驱动配置与音画严格同步 (A/V Sync)
       // 关键：必须使用 opensles 纯 C 原生音频驱动！
@@ -285,6 +299,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
       // 音视频高精度同步配置，彻底杜绝外挂音轨音画不同步
       await platform?.setProperty('video-sync', 'audio');
+      await platform?.setProperty('framedrop', 'vo');
+      await platform?.setProperty('video-sync-max-video-change', '5');
       await platform?.setProperty('hr-seek', 'yes');
       await platform?.setProperty('hr-seek-framedrop', 'yes');
       await platform?.setProperty('audio-pitch-correction', 'no');
@@ -334,6 +350,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
         configuration: VideoControllerConfiguration(
           enableHardwareAcceleration: true,
           hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
+          vo: Platform.isAndroid ? 'mediacodec_embed' : 'gpu',
         ),
       );
 

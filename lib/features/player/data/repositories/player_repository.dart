@@ -256,9 +256,15 @@ class PlayerRepository {
   }
 
   /// 从满足目标清晰度的多个轨中，智能优选具备最高硬件硬解兼容性的编码轨
-  /// 优先级策略：HEVC (H.265, codecid: 7) > AVC (H.264, codecid: 1) > AV1 (codecid: 12)
-  /// 原因：当前绝大多数电视芯片和平板对 4K HEVC 60fps 拥有 100% 的硬件硬解覆盖，
-  /// 而 AV1 在大部分移动/大屏芯片上没有硬解码器，会被迫走 CPU 软解导致满载狂掉帧。
+  /// 优先级策略：
+  /// 1. HEVC (H.265, codecid: 12 / hvc1 / hev1 / dvh1)：得分最高 (300分)。
+  ///    电视 SOC (如联发科 Pentonic MT5877/MT9655、晶晨、海思等) 具备成熟的 4K 60fps/120fps HEVC 硬解流水线。
+  /// 2. 4K / 8K / HDR / 1080P60 (targetQn >= 116)：
+  ///    AV1 (codecid: 13 / av01) -> 250分，AVC (codecid: 7 / avc1) -> 100分。
+  ///    【核心避坑】：现代 Android TV (Android 10+) 均强制配备 4K 60fps AV1 硬件解码器 (c2.mtk.av1.decoder)，
+  ///    而 AVC (H.264) 硬件解码模块上限为 Level 5.2，在 4K 60fps 超大码率下会造成高达 70%+ 的灾难性丢帧！
+  /// 3. 常规清晰度 (targetQn < 116，如 1080P 30fps 及以下)：
+  ///    AVC (codecid: 7) -> 250分，AV1 (codecid: 13) -> 100分，兼顾老款无 AV1 硬解的电视盒子。
   Map<String, dynamic>? _selectBestCodecTrack(
     List<dynamic> videoList,
     int targetQn,
@@ -282,37 +288,69 @@ class PlayerRepository {
     if (matchedTracks.isEmpty) return null;
 
     // 评分机制：优先保障硬件解码流畅度与电视 SOC 硬解兼容性
-    // 优先级策略：HEVC (codecid: 12 / hvc1 / hev1 / dvh1) > AVC (codecid: 7 / avc1) > AV1 (codecid: 13 / av01)
     int getCodecScore(Map<String, dynamic> track) {
       final codecid = track['codecid'] as int? ?? 0;
       final codecs = (track['codecs'] as String? ?? '').toLowerCase();
+      final trackQn = track['id'] as int? ?? targetQn;
 
-      // 1. HEVC (H.265 / 杜比视界) -> 得分最高 (300分)
-      // B 站 Web DASH 协议中 codecid 12 为 HEVC，绝大多数电视芯片对 4K 60fps HEVC 拥有极高的硬解兼容性
+      // 1. HEVC (H.265 / 杜比视界) -> 任何分辨率下均优先 (300分)
       if (codecid == 12 ||
           codecs.startsWith('hev') ||
           codecs.startsWith('hvc') ||
           codecs.startsWith('dvh')) {
         return 300;
       }
-      // 2. AVC (H.264) -> 通用标准硬解 (200分)
-      // B 站 Web DASH 协议中 codecid 7 为 AVC
-      if (codecid == 7 || codecid == 1 || codecs.startsWith('avc')) {
-        return 200;
-      }
-      // 3. AV1 -> 最后兜底 (100分)
-      // B 站 Web DASH 协议中 codecid 13 为 AV1，绝大多数电视芯片无 AV1 硬解模块，走 CPU 软解容易严重掉帧
-      if (codecid == 13 ||
-          codecs.startsWith('av01') ||
-          codecs.startsWith('av1')) {
-        return 100;
+
+      // 2. 超高清 / 高帧率 (4K, 8K, HDR, 1080P60: qn >= 116)
+      // 必须优先使用 AV1 硬件解码 (250分)，严禁使用 4K AVC (100分)
+      if (trackQn >= 116) {
+        if (codecid == 13 ||
+            codecs.startsWith('av01') ||
+            codecs.startsWith('av1')) {
+          return 250;
+        }
+        if (codecid == 7 || codecid == 1 || codecs.startsWith('avc')) {
+          return 100;
+        }
+      } else {
+        // 3. 常规清晰度 (1080P 及以下)：AVC 硬解成熟轻量 (250分)，AV1 为 100分
+        if (codecid == 7 || codecid == 1 || codecs.startsWith('avc')) {
+          return 250;
+        }
+        if (codecid == 13 ||
+            codecs.startsWith('av01') ||
+            codecs.startsWith('av1')) {
+          return 100;
+        }
       }
       return 0;
     }
 
-    matchedTracks.sort((a, b) => getCodecScore(b).compareTo(getCodecScore(a)));
-    return matchedTracks.first;
+    matchedTracks.sort((a, b) {
+      final scoreA = getCodecScore(a);
+      final scoreB = getCodecScore(b);
+      if (scoreA != scoreB) {
+        return scoreB.compareTo(scoreA);
+      }
+      final bwA = a['bandwidth'] as int? ?? 0;
+      final bwB = b['bandwidth'] as int? ?? 0;
+      return bwB.compareTo(bwA);
+    });
+
+    final bestTrack = matchedTracks.first;
+    debugPrint(
+      '[PlayerRepository] 优选解码轨: qn=${bestTrack['id']}, codecid=${bestTrack['codecid']}, codecs=${bestTrack['codecs']}, bandwidth=${bestTrack['bandwidth']}',
+    );
+    return bestTrack;
   }
+
+  /// 供单元测试验证解码轨优选评分策略
+  @visibleForTesting
+  Map<String, dynamic>? selectBestCodecTrack(
+    List<dynamic> videoList,
+    int targetQn,
+  ) =>
+      _selectBestCodecTrack(videoList, targetQn);
 
   /// 向 B 站官方上报播放进度与心跳，使视频正式进入用户的观看历史记录
   Future<void> reportHeartbeat({

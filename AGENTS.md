@@ -203,8 +203,8 @@ third/lib/ (参考源)                 lib/ (现代 TV 架构)
    - **画质切换记忆续播**：画质变更时提取当前精准进度，换流起播后直接定位至记忆位置，绝不重新从头播放；
    - **多级分层返回拦截**：全屏播放器 `PopScope` 设置为 `canPop: false`，遵循分级返回策略：画质面板 $\to$ 控制栏 $\to$ 退出播放器。
 5. **硬件解码优先与掉帧优化策略**：
-   - 在选择流轨道时按 **HEVC (H.265, codecid: 7) > AVC (H.264, codecid: 1) > AV1 (codecid: 12)** 智能排序；
-   - 彻底避免 4K 画质下因缺少 AV1 硬解走 CPU 软解导致满载狂掉帧的问题。
+   - 在选择流轨道时按 **HEVC (H.265, codecid: 12) > AV1 (codecid: 13, 针对 4K/8K/1080P60 专用大屏 ASIC 硬解) > AVC (H.264, codecid: 7)** 智能排序；
+   - 彻底避免在 4K 60fps 等超高清规格下选用高码率 AVC（H.264 硬件解码器大多受限于 Level 5.2，4K 60fps 会导致 70%+ 灾难性丢帧），充分利用大屏现代 SOC（如联发科 Pentonic MT5877/MT9655）的 `c2.mtk.hevc.decoder` 与 `c2.mtk.av1.decoder` 硬件解码流水线。
 6. **云端心跳与观看历史同步**：
    - 起播、每 15 秒以及退出播放器时，必须调用 `POST /x/click-interface/web/heartbeat`；
    - 从 Cookie 中提取 `bili_jct` (csrf token) 并携带 `played_time`，确保视频播放真实写入云端历史记录。

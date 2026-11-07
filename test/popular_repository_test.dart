@@ -140,5 +140,45 @@ void main() {
       );
       expect(online, '1.2万');
     });
+
+    test('selectBestCodecTrack prioritizes HEVC when available across all resolutions', () {
+      final tracks = [
+        {'id': 120, 'codecid': 7, 'codecs': 'avc1.640034', 'bandwidth': 5000000},
+        {'id': 120, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 3000000},
+        {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 3500000},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      expect(selected?['codecid'], 12);
+      expect(selected?['codecs'], 'hev1.1.6.L120.90');
+    });
+
+    test('selectBestCodecTrack prioritizes AV1 over AVC for 4K (id: 120)', () {
+      final tracks = [
+        {'id': 120, 'codecid': 7, 'codecs': 'avc1.640034', 'bandwidth': 8000000},
+        {'id': 120, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 3000000},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      expect(selected?['codecid'], 13);
+      expect(selected?['codecs'], 'av01.0.08M.08');
+    });
+
+    test('selectBestCodecTrack prioritizes AVC over AV1 for 1080P (id: 80)', () {
+      final tracks = [
+        {'id': 80, 'codecid': 13, 'codecs': 'av01.0.08M.08', 'bandwidth': 1500000},
+        {'id': 80, 'codecid': 7, 'codecs': 'avc1.640033', 'bandwidth': 2000000},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 80);
+      expect(selected?['codecid'], 7);
+      expect(selected?['codecs'], 'avc1.640033');
+    });
+
+    test('selectBestCodecTrack uses bandwidth as tie-breaker for identical codecs', () {
+      final tracks = [
+        {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 3000000},
+        {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'bandwidth': 6000000},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      expect(selected?['bandwidth'], 6000000);
+    });
   });
 }
