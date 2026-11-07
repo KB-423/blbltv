@@ -7,13 +7,14 @@ import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/back_navigation_debounce.dart';
 import '../../../../router/route_paths.dart';
 import '../providers/nav_rail_focus_provider.dart';
-import '../widgets/tv_nav_rail.dart';
+import '../widgets/tv_top_bar.dart';
 
-/// TV 主框架 Shell，左侧导轨 + 右侧动态页面内容
+/// TV 主框架 Shell，顶部双层悬浮导航栏 + 动态页面内容
 /// 包含全局根 PopScope 防误触退出保护机制：
-/// 1. 内容区按返回键优先切回左侧导航导轨
-/// 2. 非首页 Tab 按返回键返回首页
-/// 3. 首页导航栏需在 2 秒内按两次返回键才真正退出应用，彻底杜绝误触或从播放器连退直接退出到系统桌面
+/// 1. 若顶栏处于隐藏或精简模式，按返回键优先恢复全显
+/// 2. 内容区按返回键优先切回顶部导航分类栏（保留记忆焦点）
+/// 3. 非推荐 Tab 按返回键切回推荐首页
+/// 4. 推荐页顶部栏需在 2 秒内按两次返回键才真正退出应用，彻底杜绝误触直接退到系统桌面
 class TvMainShell extends ConsumerStatefulWidget {
   final Widget child;
   final GoRouterState state;
@@ -34,7 +35,7 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
   @override
   Widget build(BuildContext context) {
     final navService = ref.read(navRailFocusServiceProvider);
-    final isNavRailVisible = ref.watch(navRailVisibilityProvider);
+    final displayMode = ref.watch(topBarDisplayModeProvider);
 
     return PopScope(
       canPop: false,
@@ -44,23 +45,26 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
         // 全局防抖锁拦截：若 400ms 内已消费过返回事件，坚决丢弃，杜绝连跳
         if (!BackNavigationDebounce.shouldHandle()) return;
 
-        // 1. 如果当前焦点不在左侧导航栏，按返回键优先平滑交接回左侧导航栏
+        // 1. 若顶栏当前处于隐藏或精简模式，先恢复全显
+        if (displayMode != TopBarDisplayMode.full) {
+          ref.read(topBarDisplayModeProvider.notifier).showFull();
+          return;
+        }
+
+        // 2. 如果当前焦点不在顶部导航栏，按返回键优先平滑交接回顶部分类栏（保留原选中记忆）
         if (!navService.isNavRailFocused) {
-          // 若导轨当前处于隐退状态，先重新唤出导轨
-          if (!isNavRailVisible) {
-            ref.read(navRailVisibilityProvider.notifier).show();
-          }
           navService.focusSelected();
           return;
         }
 
-        // 2. 如果当前选中的不是首页 Tab，返回首页
-        if (widget.state.matchedLocation != RoutePaths.home) {
+        // 3. 如果当前选中的不是推荐 Tab，返回推荐首页
+        if (widget.state.matchedLocation != RoutePaths.home &&
+            widget.state.matchedLocation != RoutePaths.initial) {
           context.go(RoutePaths.home);
           return;
         }
 
-        // 3. 如果已经在首页导航栏：2 秒内连续按两次返回键才真正退出应用，彻底杜绝单次连击误触退出到桌面
+        // 4. 如果已经在推荐页导航栏：2 秒内连续按两次返回键才真正退出应用，彻底杜绝单次连击误触退出到桌面
         final now = DateTime.now();
         if (_lastBackTime == null ||
             now.difference(_lastBackTime!).inSeconds >= 2) {
@@ -89,17 +93,18 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
             Positioned.fill(
               child: Focus(
                 onKeyEvent: (node, event) {
-                  // 键盘 Escape 兜底：平滑切回左侧导轨 (Android 物理返回键已由 PopScope 纳管)
+                  // 键盘 Escape 兜底：平滑切回顶部导航 (Android 物理返回键已由 PopScope 纳管)
                   if (event.logicalKey == LogicalKeyboardKey.escape) {
-                    if (!navService.isNavRailFocused) {
-                      if (event is KeyDownEvent) {
-                        if (!isNavRailVisible) {
-                          ref.read(navRailVisibilityProvider.notifier).show();
-                        }
+                    if (event is KeyDownEvent) {
+                      if (displayMode != TopBarDisplayMode.full) {
+                        ref
+                            .read(topBarDisplayModeProvider.notifier)
+                            .showFull();
+                      } else if (!navService.isNavRailFocused) {
                         navService.focusSelected();
                       }
-                      return KeyEventResult.handled;
                     }
+                    return KeyEventResult.handled;
                   }
                   return KeyEventResult.ignored;
                 },
@@ -107,31 +112,13 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
               ),
             ),
 
-            // Apple TV 悬浮折叠微光侧边导轨 (选项 B：左侧浮空无界毛玻璃)
+            // TV 顶部双层悬浮导航栏 (浮于全屏播放器/内容之上)
             Positioned(
-              left: 16,
-              top: 16,
-              bottom: 16,
-              child: AnimatedSlide(
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-                offset: isNavRailVisible
-                    ? Offset.zero
-                    : const Offset(-1.25, 0.0),
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
-                  opacity: isNavRailVisible ? 1.0 : 0.0,
-                  child: IgnorePointer(
-                    ignoring: !isNavRailVisible,
-                    child: ExcludeFocus(
-                      excluding: !isNavRailVisible,
-                      child: TvNavRail(
-                        currentPath: widget.state.matchedLocation,
-                      ),
-                    ),
-                  ),
-                ),
+              top: 0,
+              left: 0,
+              right: 0,
+              child: TvTopBar(
+                currentPath: widget.state.matchedLocation,
               ),
             ),
           ],

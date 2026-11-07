@@ -5,10 +5,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bili_tv/core/storage/storage_service.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_provider.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_state.dart';
+import 'package:bili_tv/features/home/presentation/providers/recommend_player_provider.dart';
+import 'package:bili_tv/features/home/presentation/providers/recommend_player_state.dart';
 import 'package:bili_tv/features/home/presentation/screens/tv_home_screen.dart';
+import 'package:bili_tv/features/home/presentation/widgets/tv_recommend_rail.dart';
 import 'package:bili_tv/models/video/video_item_model.dart';
 import 'package:dpad/dpad.dart';
 import 'package:media_kit/media_kit.dart';
+
+class _FakeRecommendPlayerNotifier extends RecommendPlayerNotifier {
+  int playedIndex = -1;
+
+  @override
+  RecommendPlayerState build() {
+    return const RecommendPlayerState(
+      currentIndex: 0,
+      isLoading: false,
+      isPurePlayback: false,
+      showControls: false,
+    );
+  }
+
+  @override
+  Future<void> playAt(int index, {Duration startPosition = Duration.zero}) async {
+    playedIndex = index;
+    state = state.copyWith(currentIndex: index);
+  }
+
+  @override
+  void resetIdleTimer() {}
+
+  @override
+  void enterPurePlayback() {
+    state = state.copyWith(isPurePlayback: true);
+  }
+
+  @override
+  void exitPurePlayback() {
+    state = state.copyWith(isPurePlayback: false);
+  }
+}
 
 class _TestHomeFeedNotifier extends HomeFeedNotifier {
   int refreshCount = 0;
@@ -61,6 +97,7 @@ void main() {
         overrides: [
           storageServiceProvider.overrideWithValue(storageService),
           homeFeedProvider.overrideWith(() => notifier),
+          recommendPlayerProvider.overrideWith(_FakeRecommendPlayerNotifier.new),
         ],
         child: MaterialApp(
           builder: Dpad.wrap(),
@@ -72,14 +109,20 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    // 检查推荐视频列表和换一批按钮已正确渲染
-    expect(find.text('换一批'), findsOneWidget);
-    expect(find.text('测试视频 0'), findsOneWidget);
+    // 检查推荐视频流与视频卡片已正确渲染
+    expect(find.text('推荐视频流'), findsOneWidget);
+    expect(find.text('测试视频 0'), findsWidgets);
 
-    // 点击“换一批”按钮模拟遥控器确定键刷新
-    await tester.tap(find.text('换一批'));
+    // 点击推荐导轨中的视频卡片模拟遥控器确定键播放
+    final railCard = find.descendant(
+      of: find.byType(TvRecommendRail),
+      matching: find.text('测试视频 0'),
+    );
+    await tester.tap(railCard);
     await tester.pump();
-    expect(notifier.refreshCount, 1);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
   });
 
   test('VideoItemModel safely parses polymorphic rcmd_reason and stats', () {

@@ -31,7 +31,12 @@ class ApiConstants {
   static const String hasLikeVideo = '/x/web-interface/archive/has/like';
   static const String likeVideo = '/x/web-interface/archive/like';
   static const String hasCoinVideo = '/x/web-interface/archive/coins';
+  static const String coinVideo = '/x/web-interface/coin/add';
+  static const String hasFavVideo = '/x/v2/fav/video/favoured';
+  static const String addFavVideo = '/x/v3/fav/resource/deal';
   static const String tripleLike = '$appBaseUrl/x/v2/view/like/triple';
+  static const String relatedVideos = '/x/web-interface/archive/related';
+  static const String upSpaceVideos = '/x/space/wbi/arc/search';
 
   // 专区端点 (热门、直播、番剧)
   static const String liveList = '$liveBaseUrl/xlive/web-interface/v1/index/getList';

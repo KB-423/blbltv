@@ -6,6 +6,8 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/services/codec_capability_service.dart';
 import '../../../../core/utils/video_url_resolver.dart';
 import '../../../../models/video/play_url_model.dart';
+import '../../../../models/video/video_collection_model.dart';
+import '../../../../models/video/video_item_model.dart';
 import '../../../../models/video/video_part_model.dart';
 
 /// 视频播放器数据仓库
@@ -156,6 +158,188 @@ class PlayerRepository {
     } catch (e) {
       debugPrint('[PlayerRepository] 获取视频详情失败: $e');
       rethrow;
+    }
+  }
+
+  /// 获取视频完整详情（包括UP主、统计数据、合集/系列信息等）
+  Future<({
+    String title,
+    int cid,
+    int aid,
+    int durationSeconds,
+    String desc,
+    VideoOwner? owner,
+    VideoStat? stat,
+    VideoCollectionModel? ugcSeason,
+    List<VideoPartItem> pages,
+  })> fetchFullVideoDetail(String bvid) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.videoDetail,
+        queryParameters: {'bvid': bvid},
+      );
+      final data = res.data;
+      if (data != null &&
+          data['code'] == 0 &&
+          data['data'] is Map<String, dynamic>) {
+        final detail = data['data'] as Map<String, dynamic>;
+        final title = detail['title'] as String? ?? 'Bilibili 视频';
+        final aid = detail['aid'] as int? ?? 0;
+        final cid = detail['cid'] as int? ??
+            (detail['pages'] != null && (detail['pages'] as List).isNotEmpty
+                ? detail['pages'][0]['cid'] as int
+                : 0);
+        final duration = detail['duration'] as int? ?? 0;
+        final desc = detail['desc'] as String? ?? '';
+
+        final ownerData = detail['owner'];
+        final owner = ownerData is Map<String, dynamic>
+            ? VideoOwner.fromJson(ownerData)
+            : null;
+
+        final statData = detail['stat'];
+        final stat = statData is Map<String, dynamic>
+            ? VideoStat.fromJson(statData)
+            : null;
+
+        VideoCollectionModel? ugcSeason;
+        if (detail['ugc_season'] is Map<String, dynamic>) {
+          final seasonMap = detail['ugc_season'] as Map<String, dynamic>;
+          final sections = seasonMap['sections'] as List?;
+          final List<VideoItemModel> seasonItems = [];
+          if (sections != null) {
+            for (final sec in sections) {
+              if (sec is Map<String, dynamic> && sec['episodes'] is List) {
+                for (final ep in sec['episodes']) {
+                  if (ep is Map<String, dynamic>) {
+                    final arc = ep['arc'] as Map<String, dynamic>?;
+                    seasonItems.add(VideoItemModel(
+                      id: ep['id'] as int? ?? 0,
+                      bvid: ep['bvid']?.toString() ?? '',
+                      cid: ep['cid'] as int? ?? 0,
+                      title: ep['title']?.toString() ?? '',
+                      pic: arc?['pic']?.toString() ?? '',
+                      duration: arc?['duration'] as int? ?? 0,
+                      owner: owner,
+                    ));
+                  }
+                }
+              }
+            }
+          }
+          ugcSeason = VideoCollectionModel(
+            id: seasonMap['id'] as int? ?? 0,
+            title: seasonMap['title']?.toString() ?? '',
+            cover: seasonMap['cover']?.toString() ?? '',
+            intro: seasonMap['intro']?.toString() ?? '',
+            epCount: seasonItems.length,
+            items: seasonItems,
+          );
+        }
+
+        final pagesList = detail['pages'] as List?;
+        final List<VideoPartItem> pages = pagesList != null
+            ? pagesList
+                .whereType<Map<String, dynamic>>()
+                .map(VideoPartItem.fromJson)
+                .toList()
+            : [];
+
+        return (
+          title: title,
+          cid: cid,
+          aid: aid,
+          durationSeconds: duration,
+          desc: desc,
+          owner: owner,
+          stat: stat,
+          ugcSeason: ugcSeason,
+          pages: pages,
+        );
+      }
+      throw Exception(data?['message'] ?? '获取视频详情失败');
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取完整视频详情失败: $e');
+      rethrow;
+    }
+  }
+
+  /// 获取相关推荐视频列表
+  Future<List<VideoItemModel>> fetchRelatedVideos(String bvid) async {
+    try {
+      final res = await _apiClient.get<Map<String, dynamic>>(
+        ApiConstants.relatedVideos,
+        queryParameters: {'bvid': bvid},
+      );
+      final data = res.data;
+      if (data != null && data['code'] == 0 && data['data'] is List) {
+        final list = data['data'] as List;
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(VideoItemModel.fromJson)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取相关视频失败: $e');
+      return [];
+    }
+  }
+
+  /// 获取UP主的作品列表
+  Future<List<VideoItemModel>> fetchUpWorks({
+    required int mid,
+    int page = 1,
+    int pageSize = 20,
+  }) async {
+    try {
+      final res = await _apiClient.getWbi<Map<String, dynamic>>(
+        ApiConstants.upSpaceVideos,
+        queryParameters: {
+          'mid': mid,
+          'ps': pageSize,
+          'pn': page,
+          'order': 'pubdate',
+        },
+      );
+      final data = res.data;
+      if (data != null &&
+          data['code'] == 0 &&
+          data['data']?['list']?['vlist'] is List) {
+        final list = data['data']['list']['vlist'] as List;
+        return list
+            .whereType<Map<String, dynamic>>()
+            .map(VideoItemModel.fromJson)
+            .toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('[PlayerRepository] 获取UP主作品列表失败: $e');
+      return [];
+    }
+  }
+
+  /// 投币操作
+  Future<bool> addCoin({
+    required String bvid,
+    int multiply = 1,
+  }) async {
+    try {
+      final csrf = await _apiClient.getCsrfToken();
+      final res = await _apiClient.post<Map<String, dynamic>>(
+        ApiConstants.coinVideo,
+        queryParameters: {
+          'bvid': bvid,
+          'multiply': multiply,
+          'select_like': 0,
+          if (csrf.isNotEmpty) 'csrf': csrf,
+        },
+      );
+      final data = res.data;
+      return data != null && data['code'] == 0;
+    } catch (e) {
+      debugPrint('[PlayerRepository] 投币失败: $e');
+      return false;
     }
   }
 

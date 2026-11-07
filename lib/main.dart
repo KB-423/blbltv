@@ -46,13 +46,15 @@ class BiliTvApp extends ConsumerWidget {
       routerConfig: router,
       builder: (context, child) {
         return Dpad.wrap(
-          // 全局边缘阻挡处理：右侧内容区向左到达边界无处可走时，自动将遥控器焦点平滑切回左侧导轨
+          // 全局边缘阻挡处理：内容区向上到达边界无处可走时，自动将遥控器焦点平滑切回顶部导航栏
           onBlockedMove: (direction) {
-            if (direction == TraversalDirection.left) {
+            if (direction == TraversalDirection.up) {
               final path =
                   router.routerDelegate.currentConfiguration.uri.path;
-              // 全屏播放器等独立全屏页面严禁切回左侧导轨，杜绝播放器内按左键被盗走焦点导致失焦卡死
-              if (!path.startsWith('/player')) {
+              // 全屏独立播放器等严禁切回顶部导轨，杜绝播放器内按上键被盗走焦点
+              if (!path.startsWith('/player') &&
+                  !path.startsWith('/bangumi/player') &&
+                  !path.startsWith('/live/player')) {
                 ref.read(navRailFocusServiceProvider).focusSelected();
               }
             }

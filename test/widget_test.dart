@@ -39,10 +39,17 @@ void main() {
       ),
     );
 
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    expect(find.text('Bili TV'), findsOneWidget);
+    // 顶部双层悬浮导航栏分类 Tab 与会员状态检查
     expect(find.text('推荐'), findsOneWidget);
-    expect(find.text('换一批'), findsOneWidget);
+    expect(find.text('直播'), findsOneWidget);
+    expect(find.text('热门'), findsOneWidget);
+    expect(find.text('番剧'), findsOneWidget);
+    expect(find.text('未登录'), findsNWidgets(2));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
   });
 }
