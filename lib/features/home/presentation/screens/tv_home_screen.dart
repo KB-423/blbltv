@@ -10,12 +10,12 @@ import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
 import '../../../user/presentation/providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../widgets/tv_video_card.dart';
-import 'tv_immersive_home_screen.dart';
 
 /// TV 首页推荐屏幕
-/// 双模态支持：
-/// 1. 默认沉浸纯享开播流 (TvImmersiveHomeScreen)：开屏即开播、上下切流、5秒自动隐退纯享
-/// 2. 常规推荐网格模式 (Apple TV 纯白微光大圆角卡片瀑布流)
+/// 采用 Apple TV 风格沉浸式质感排布：
+/// - 顶部信息栏与遥控器快捷工具栏 (换一批、回到顶部)
+/// - 大屏 4 列高品质视频卡片网格
+/// - 严密的 D-Pad 区域隔离与焦点记忆
 class TvHomeScreen extends ConsumerStatefulWidget {
   const TvHomeScreen({super.key});
 
@@ -24,8 +24,6 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
-  // 默认进入全新沉浸式开播流 (开屏即播、导航旁边浮空推荐流、上下切流、5秒自动纯享)
-  bool _isImmersiveMode = true;
   final ScrollController _scrollController = ScrollController();
   final FocusNode _firstCardFocusNode =
       FocusNode(debugLabel: 'HomeFirstCardFocus');
@@ -35,23 +33,8 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isImmersiveMode) {
-        _tryInitialFocus();
-      }
+      _tryInitialFocus();
     });
-  }
-
-  void _setImmersiveMode(bool immersive) {
-    setState(() {
-      _isImmersiveMode = immersive;
-      _hasInitialFocused = false;
-    });
-    ref.read(navRailVisibilityProvider.notifier).setVisible(true);
-    if (!immersive) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _tryInitialFocus();
-      });
-    }
   }
 
   void _tryInitialFocus() {
@@ -83,12 +66,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isImmersiveMode) {
-      return TvImmersiveHomeScreen(
-        onSwitchToGrid: () => _setImmersiveMode(false),
-      );
-    }
-
     final feedState = ref.watch(homeFeedProvider);
     final authState = ref.watch(authProvider);
 
@@ -137,7 +114,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             verticalEdge: DpadEdgeBehavior.leave,
             child: Row(
               children: [
-                // “沉浸开播”切换按钮
+                // “换一批”按钮 (刷新操作)
                 DpadFocusable(
                   onDirection: (direction) {
                     if (direction == TraversalDirection.left) {
@@ -147,57 +124,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                     }
                     return false;
                   },
-                  onSelect: () => _setImmersiveMode(true),
-                  builder: (context, state, child) {
-                    final isFocused = state.focused;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isFocused
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isFocused ? Colors.white : Colors.white12,
-                          width: 1.2,
-                        ),
-                        boxShadow: isFocused
-                            ? [
-                                BoxShadow(
-                                  color: Colors.white.withValues(alpha: 0.28),
-                                  blurRadius: 14,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.play_circle_outline_rounded,
-                            size: 17,
-                            color: isFocused ? Colors.black : Colors.white,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '沉浸开播',
-                            style: TextStyle(
-                              color: isFocused ? Colors.black : Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const SizedBox.shrink(),
-                ),
-                const SizedBox(width: 12),
-
-                // “换一批”按钮 (刷新操作)
-                DpadFocusable(
                   onSelect: () =>
                       ref.read(homeFeedProvider.notifier).refresh(),
                   builder: (context, state, child) {

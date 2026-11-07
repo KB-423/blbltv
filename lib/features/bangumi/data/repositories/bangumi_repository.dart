@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/network/api_client.dart';
+import '../models/bangumi_episode_model.dart';
 import '../models/bangumi_season_model.dart';
 
 /// 追番与影视数据仓库 (全量真实官方接口，零Mock)
@@ -68,6 +69,21 @@ class BangumiRepository {
       debugPrint('[BangumiRepository] 获取番剧详情失败: $e');
       rethrow;
     }
+  }
+
+  /// 获取番剧剧集列表与季度标题
+  Future<(String, List<BangumiEpisodeModel>)> fetchSeasonEpisodes(
+      int seasonId) async {
+    final detail = await fetchSeasonDetail(seasonId);
+    final seasonTitle = detail['season_title'] as String? ??
+        detail['title'] as String? ??
+        '番剧播放';
+    final rawList = detail['episodes'] as List<dynamic>? ?? [];
+    final episodes = rawList
+        .map((e) =>
+            BangumiEpisodeModel.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+    return (seasonTitle, episodes);
   }
 }
 

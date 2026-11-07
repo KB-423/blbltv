@@ -7,13 +7,13 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/back_navigation_debounce.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../providers/player_provider.dart';
 import '../widgets/tv_player_controls.dart';
 import '../widgets/tv_player_debug_overlay.dart';
 import '../widgets/tv_quality_panel.dart';
 import '../widgets/tv_part_drawer.dart';
+import '../widgets/tv_seek_hud.dart';
 
 /// TV 全屏视频播放器屏幕
 /// 分层焦点模型：
@@ -133,7 +133,13 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音，画面保留最后一帧出栈过渡
       notifier.pauseAndStopAudio();
       if (context.mounted) {
-        context.pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          try {
+            context.pop();
+          } catch (_) {}
+        }
       }
     }
   }
@@ -393,80 +399,11 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
 
             // 4. 大屏长按快进/快退沉浸式 HUD 浮层 (松开定位)
             if (_isSeekingLongPress)
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 20,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.88),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: TvTheme.biliPink,
-                      width: 1.8,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: TvTheme.biliPink.withValues(alpha: 0.35),
-                        blurRadius: 28,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _isSeekForward
-                                ? Icons.fast_forward_rounded
-                                : Icons.fast_rewind_rounded,
-                            color: TvTheme.biliPink,
-                            size: 30,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _isSeekForward ? '快进中 (松手定位)' : '快退中 (松手定位)',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        '${Formatters.formatDuration(_currentSeekTarget.inSeconds)} / ${Formatters.formatDuration(playerState.duration.inSeconds)} (${_accumulatedSeekSeconds > 0 ? "+$_accumulatedSeekSeconds" : "$_accumulatedSeekSeconds"}s)',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          fontFamily: 'monospace',
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: 240,
-                        child: LinearProgressIndicator(
-                          value: playerState.duration.inMilliseconds > 0
-                              ? (_currentSeekTarget.inMilliseconds /
-                                      playerState.duration.inMilliseconds)
-                                  .clamp(0.0, 1.0)
-                              : 0.0,
-                          minHeight: 6,
-                          backgroundColor: Colors.white24,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            TvTheme.biliPink,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              TvSeekHUD(
+                isForward: _isSeekForward,
+                targetPosition: _currentSeekTarget,
+                duration: playerState.duration,
+                accumulatedSeconds: _accumulatedSeekSeconds,
               ),
 
             // 5. 错误重试界面
@@ -530,7 +467,13 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                   // 点击控制栏返回按钮：第 0 毫秒立即掐断音频
                   notifier.pauseAndStopAudio();
                   if (context.mounted) {
-                    context.pop();
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      try {
+                        context.pop();
+                      } catch (_) {}
+                    }
                   }
                 },
               ),

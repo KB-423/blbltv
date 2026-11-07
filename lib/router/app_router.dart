@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/bangumi/presentation/screens/tv_bangumi_player_screen.dart';
 import '../features/bangumi/presentation/screens/tv_bangumi_screen.dart';
 import '../features/home/presentation/screens/tv_home_screen.dart';
 import '../features/live/data/models/live_room_item_model.dart';
@@ -102,6 +103,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final bvid = state.pathParameters['bvid'] ?? '';
           return TvPlayerScreen(bvid: bvid);
+        },
+      ),
+
+      // 全屏番剧播放器独立路由（脱离侧边栏）
+      GoRoute(
+        path: RoutePaths.bangumiPlayer,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (context, state) {
+          final seasonIdStr = state.pathParameters['seasonId'] ?? '0';
+          final seasonId = int.tryParse(seasonIdStr) ?? 0;
+          return TvBangumiPlayerScreen(seasonId: seasonId);
         },
       ),
 

@@ -1,27 +1,26 @@
-import 'dart:async';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:dpad/dpad.dart';
 
-import '../../../../core/constants/api_constants.dart';
-import '../../../../core/utils/formatters.dart';
-import '../../../../widgets/tv_image.dart';
+import '../../../../core/theme/tv_theme.dart';
+import '../../../../core/utils/back_navigation_debounce.dart';
+import '../../../../models/video/play_url_model.dart';
 import '../../../../widgets/tv_status_view.dart';
+import '../../../player/presentation/providers/player_provider.dart';
+import '../../../player/presentation/widgets/tv_player_controls.dart';
+import '../../../player/presentation/widgets/tv_player_debug_overlay.dart';
 import '../../data/models/live_room_item_model.dart';
-import '../../data/repositories/live_repository.dart';
+import '../providers/live_player_provider.dart';
+import '../providers/live_player_state.dart';
 
 /// TV 全屏直播播放器界面
 /// 遵循 10-foot TV 大屏规范：
-/// - 纯 C 原生 opensles 音频驱动，杜绝 CheckJNI CheckMethodID 崩溃
-/// - 动态控制条 4 秒自动淡出
-/// - 遥控器单次返回键平滑出栈，彻底杜绝黑屏与重复按键
-/// - 优雅退出生命周期，组件 unmount 时停止流，保护视频纹理
+/// - 纯 C 原生 OpenSL ES 音频驱动与 MediaCodec 硬件解码
+/// - 动态控制条 5 秒自动淡出
+/// - 遥控器单次返回键平滑出栈，第 0 毫秒切断音频
+/// - 退出生命周期严格回收，组件 unmount 时释放解码资源
 class TvLivePlayerScreen extends ConsumerStatefulWidget {
   final int roomId;
   final LiveRoomItemModel? room;
@@ -33,392 +32,269 @@ class TvLivePlayerScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TvLivePlayerScreen> createState() => _TvLivePlayerScreenState();
+  ConsumerState<TvLivePlayerScreen> createState() =>
+      _TvLivePlayerScreenState();
 }
 
-class _TvLivePlayerScreenState extends ConsumerState<TvLivePlayerScreen> {
-  Player? _player;
-  VideoController? _videoController;
+class _TvLivePlayerScreenState extends ConsumerState<TvLivePlayerScreen>
+    with WidgetsBindingObserver {
+  final FocusNode _videoFocusNode = FocusNode(debugLabel: 'LiveVideoFocus');
+  final FocusNode _playPauseFocusNode =
+      FocusNode(debugLabel: 'LivePlayPauseBtn');
 
-  bool _isLoading = true;
-  String? _errorMessage;
-  bool _showControls = true;
-  Timer? _hideControlsTimer;
-
-  final FocusNode _rootFocusNode = FocusNode();
-  final FocusNode _backButtonFocusNode = FocusNode();
+  bool _isExiting = false;
+  LivePlayerNotifier? _playerNotifier;
 
   @override
   void initState() {
     super.initState();
-    _initLivePlayer();
-    _resetHideControlsTimer();
-  }
-
-  Future<void> _initLivePlayer() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final repository = ref.read(liveRepositoryProvider);
-      final playUrl = await repository.fetchLivePlayUrl(widget.roomId);
-
-      if (!mounted) return;
-
-      final player = Player(
-        configuration: const PlayerConfiguration(
-          bufferSize: 32 * 1024 * 1024,
-        ),
-      );
-      _player = player;
-      _videoController = VideoController(player);
-
-      final dynamic platform = player.platform;
-      if (Platform.isAndroid) {
-        await platform?.setProperty('volume-max', '100');
-        await platform?.setProperty('ao', 'opensles');
-        await platform?.setProperty('hwdec', 'auto-safe');
-      }
-      await platform?.setProperty('video-sync', 'audio');
-
-      player.stream.error.listen((error) {
-        debugPrint('[LivePlayer] 播放错误: $error');
-      });
-
-      await player.open(
-        Media(
-          playUrl,
-          httpHeaders: {
-            'Referer': 'https://live.bilibili.com',
-            'User-Agent': ApiConstants.defaultUserAgent,
-          },
-        ),
-        play: true,
-      );
-
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = e.toString();
-        });
-      }
-    }
-  }
-
-  void _toggleControls() {
-    setState(() {
-      _showControls = !_showControls;
-    });
-    if (_showControls) {
-      _resetHideControlsTimer();
-      _backButtonFocusNode.requestFocus();
-    } else {
-      _rootFocusNode.requestFocus();
-    }
-  }
-
-  void _resetHideControlsTimer() {
-    _hideControlsTimer?.cancel();
-    _hideControlsTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted && _showControls) {
-        setState(() {
-          _showControls = false;
-        });
-        _rootFocusNode.requestFocus();
+        _videoFocusNode.requestFocus();
+        if (widget.room != null) {
+          ref
+              .read(livePlayerProvider(widget.roomId).notifier)
+              .setInitialRoomMeta(widget.room);
+        }
       }
     });
   }
 
   @override
   void dispose() {
-    _hideControlsTimer?.cancel();
-    _rootFocusNode.dispose();
-    _backButtonFocusNode.dispose();
-    final p = _player;
-    _player = null;
-    _videoController = null;
-    if (p != null) {
-      try {
-        p.stop();
-        p.dispose();
-      } catch (e) {
-        debugPrint('[LivePlayer] 停止播放器异常: $e');
-      }
-    }
+    WidgetsBinding.instance.removeObserver(this);
+    _videoFocusNode.dispose();
+    _playPauseFocusNode.dispose();
+
+    // 关键生命周期保障：组件卸载时立即停止音频与释放硬解实例，杜绝后台残留播放
+    _playerNotifier?.disposePlayer();
+    _playerNotifier = null;
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: Focus(
-          focusNode: _rootFocusNode,
-          autofocus: true,
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              if (event.logicalKey == LogicalKeyboardKey.select ||
-                  event.logicalKey == LogicalKeyboardKey.enter ||
-                  event.logicalKey == LogicalKeyboardKey.arrowUp ||
-                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
-                _toggleControls();
-                return KeyEventResult.handled;
-              }
-            }
-            return KeyEventResult.ignored;
-          },
-          child: GestureDetector(
-            onTap: _toggleControls,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // 1. 视频画面
-                if (_videoController != null)
-                  Center(
-                    child: Video(
-                      controller: _videoController!,
-                      controls: NoVideoControls,
-                    ),
-                  ),
-
-                // 2. 加载与错误状态
-                if (_isLoading)
-                  const ColoredBox(
-                    color: Colors.black54,
-                    child: TvLoadingView(message: '正在连接直播流...'),
-                  )
-                else if (_errorMessage != null)
-                  ColoredBox(
-                    color: Colors.black87,
-                    child: TvErrorView(
-                      error: _errorMessage!,
-                      onRetry: _initLivePlayer,
-                    ),
-                  ),
-
-                // 3. 顶部信息栏与控制栏 (平滑动效)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  top: _showControls ? 0 : -110,
-                  left: 0,
-                  right: 0,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: _showControls ? 1.0 : 0.0,
-                    child: _buildTopHeader(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _playerNotifier?.player?.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _videoFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
-  Widget _buildTopHeader(BuildContext context) {
-    final room = widget.room;
-    final title = room?.title ?? '直播间 ${widget.roomId}';
-    final uname = room?.uname ?? '';
-    final area = room?.areaName.isNotEmpty == true
-        ? room!.areaName
-        : (room?.areaV2Name ?? '');
-    final online = room?.online ?? 0;
+  void _handleBack(
+    BuildContext context,
+    LivePlayerState playerState,
+    LivePlayerNotifier notifier,
+  ) {
+    if (_isExiting) return;
+    if (!BackNavigationDebounce.shouldHandle()) return;
 
-    return Container(
-      padding: const EdgeInsets.only(top: 24, left: 32, right: 32, bottom: 24),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black87,
-            Colors.black54,
-            Colors.transparent,
-          ],
-        ),
-      ),
-      child: DpadRegion(
-        child: Row(
+    if (playerState.showControls) {
+      notifier.hideControls();
+    } else {
+      _isExiting = true;
+      // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音
+      notifier.pauseAndStopAudio();
+      if (context.mounted) {
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          try {
+            context.pop();
+          } catch (_) {}
+        }
+      }
+    }
+  }
+
+  KeyEventResult _handleVideoKeyEvent(
+    KeyEvent event,
+    LivePlayerState state,
+    LivePlayerNotifier notifier,
+  ) {
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.keyD ||
+            event.logicalKey == LogicalKeyboardKey.digit0)) {
+      ref.read(playerDebugOverlayProvider.notifier).toggle();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (event is KeyDownEvent) {
+        _handleBack(context, state, notifier);
+      }
+      return KeyEventResult.handled;
+    }
+
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.arrowDown ||
+            event.logicalKey == LogicalKeyboardKey.arrowUp)) {
+      notifier.showControlsTemporarily();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _playPauseFocusNode.requestFocus();
+        }
+      });
+      return KeyEventResult.handled;
+    }
+
+    if (event is KeyDownEvent &&
+        (event.logicalKey == LogicalKeyboardKey.select ||
+            event.logicalKey == LogicalKeyboardKey.enter)) {
+      notifier.togglePlay();
+      notifier.showControlsTemporarily();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final playerState = ref.watch(livePlayerProvider(widget.roomId));
+    final notifier = ref.read(livePlayerProvider(widget.roomId).notifier);
+    _playerNotifier = notifier;
+
+    final showDebugOverlay = ref.watch(playerDebugOverlayProvider);
+    final videoController = notifier.videoController;
+
+    // 焦点自愈：控制栏隐藏时将焦点安全归还视频画面
+    ref.listen(
+      livePlayerProvider(widget.roomId).select((s) => s.showControls),
+      (prev, show) {
+        if (prev == true && !show) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _videoFocusNode.requestFocus();
+          });
+        }
+      },
+    );
+
+    final title = playerState.title.isNotEmpty
+        ? playerState.title
+        : (widget.room?.title ?? '直播间 ${widget.roomId}');
+
+    final subtitle = playerState.uname.isNotEmpty
+        ? '主播: ${playerState.uname}'
+        : (widget.room?.uname != null ? '主播: ${widget.room!.uname}' : '');
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack(context, playerState, notifier);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
           children: [
-            // 返回按钮
-            DpadFocusable(
-              focusNode: _backButtonFocusNode,
+            // 1. 直播画面与独立焦点组件
+            Focus(
+              focusNode: _videoFocusNode,
               autofocus: true,
-              onSelect: () => context.pop(),
-              builder: (context, state, child) {
-                final isFocused = state.focused;
-                return Container(
+              onKeyEvent: (node, event) =>
+                  _handleVideoKeyEvent(event, playerState, notifier),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  notifier.toggleControls();
+                  _videoFocusNode.requestFocus();
+                },
+                child: Center(
+                  child: videoController != null
+                      ? Video(
+                          controller: videoController,
+                          controls: NoVideoControls,
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ),
+
+            // 2. 缓冲动画
+            if (playerState.isLoading || playerState.isBuffering)
+              const Center(
+                child: SizedBox(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    color: isFocused ? Colors.white : Colors.black45,
-                    shape: BoxShape.circle,
-                    boxShadow: isFocused
-                        ? [
-                            BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.4),
-                              blurRadius: 12,
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    Icons.arrow_back_rounded,
-                    color: isFocused ? Colors.black : Colors.white,
-                    size: 24,
-                  ),
-                );
-              },
-              child: const SizedBox.shrink(),
-            ),
-            const SizedBox(width: 20),
-
-            // 主播头像
-            if (room != null && room.face.isNotEmpty) ...[
-              ClipOval(
-                child: SizedBox(
-                  width: 42,
-                  height: 42,
-                  child: TvImage(
-                    imageUrl: room.face,
-                    fit: BoxFit.cover,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3.0,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      TvTheme.biliPink,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 14),
-            ],
 
-            // 直播间标题与主播名
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      // LIVE 标识红点
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF4684),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.circle, color: Colors.white, size: 6),
-                            SizedBox(width: 4),
-                            Text(
-                              'LIVE',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (area.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white24,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            area,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 10.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                      if (uname.isNotEmpty) ...[
-                        const SizedBox(width: 10),
-                        Flexible(
-                          child: Text(
-                            uname,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+            // 3. 极客调试面板
+            if (showDebugOverlay)
+              Positioned(
+                top: 20,
+                left: 20,
+                child: TvPlayerDebugOverlay(
+                  player: notifier.player,
+                  title: '$title ($subtitle)',
+                  qn: 10000,
+                  cdnUrl: playerState.streamUrl,
+                ),
+              ),
+
+            // 4. 错误提示
+            if (playerState.error != null && !playerState.isLoading)
+              Center(
+                child: TvErrorView(
+                  error: playerState.error!,
+                  onRetry: () => notifier.retry(),
+                ),
+              ),
+
+            // 5. 直播控制栏 (isLive: true)
+            if (playerState.showControls)
+              TvPlayerControls(
+                title: title,
+                subtitle: subtitle,
+                badgeText: '🔴 直播中',
+                badgeColor: Colors.redAccent,
+                onlineCount: playerState.onlineCount,
+                isLive: true,
+                isPlaying: playerState.isPlaying,
+                position: Duration.zero,
+                duration: Duration.zero,
+                currentQn: 10000,
+                qualities: const [
+                  VideoQualityItem(qn: 10000, desc: '原画'),
                 ],
+                showDebugOverlay: showDebugOverlay,
+                playPauseFocusNode: _playPauseFocusNode,
+                onFocusVideo: () => _videoFocusNode.requestFocus(),
+                onUserInteraction: notifier.showControlsTemporarily,
+                onToggleDebugOverlay: () =>
+                    ref.read(playerDebugOverlayProvider.notifier).toggle(),
+                onTogglePlay: notifier.togglePlay,
+                onSeekBackward: () {},
+                onSeekForward: () {},
+                onOpenQuality: () {},
+                onBack: () {
+                  notifier.pauseAndStopAudio();
+                  if (context.mounted) {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      try {
+                        context.pop();
+                      } catch (_) {}
+                    }
+                  }
+                },
               ),
-            ),
-
-            // 在线人气
-            if (online > 0) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white24, width: 0.8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.local_fire_department_rounded,
-                      color: Color(0xFFFF5252),
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${Formatters.formatCount(online)} 人气',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
