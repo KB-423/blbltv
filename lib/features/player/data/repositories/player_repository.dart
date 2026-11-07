@@ -155,20 +155,23 @@ class PlayerRepository {
   }
 
   /// 获取指定清晰度的视频流播放链接与支持的清晰度列表
-  /// [fnval: 4048] 开启 B 站 DASH 全规格视频流 (支持 8K, 4K, HDR, 1080P高码率, 杜比视界等)
+  /// [fnval: 3024] 开启 DASH(16) + HDR(64) + 4K(128) + 杜比音效(256) + 杜比视界(512) + AV1(2048)
+  /// 彻底排除 bit 1024 (8K)，避免电视硬件解码器因显存限制 (4096x2304) 报 ERROR_NO_MEMORY 导致黑屏
   Future<VideoPlayInfo> fetchPlayUrl({
     required String bvid,
     required int cid,
     int qn = 120, // 默认申请高规格画质，由服务端根据会员身份自动协商下发
   }) async {
+    // 电视 SOC 硬件硬解上限为 4K (4096x2304)，超出部分强制安全限制在 120(4K) / 125(HDR)
+    final int safeQn = (qn == 127) ? 120 : qn;
     try {
       final res = await _apiClient.getWbi<Map<String, dynamic>>(
         ApiConstants.videoPlayUrl,
         queryParameters: {
           'bvid': bvid,
           'cid': cid,
-          'qn': qn,
-          'fnval': 4048, // 16(DASH) + 64(HDR) + 128(4K) + 256(8K) + 512(杜比视界) + 1024(杜比全景声) + 2048(8K HDR)
+          'qn': safeQn,
+          'fnval': 3024, // 16(DASH) + 64(HDR) + 128(4K) + 256(杜比音效) + 512(杜比视界) + 2048(AV1) - 排除 1024(8K)
           'fourk': 1,
           'fnver': 0,
         },
@@ -184,13 +187,38 @@ class PlayerRepository {
         final List<dynamic> acceptDescList =
             playData['accept_description'] ?? [];
 
+        // 提取全部可用 DASH 轨
+        final List<dynamic> rawVideoList =
+            (playData['dash'] != null && playData['dash']['video'] is List)
+                ? (playData['dash']['video'] as List)
+                : const [];
+
+        // 统计各清晰度是否有硬件支持的流轨 (排除超过 4K 60fps 硬件硬解吞吐极限的超规格轨)
+        final Set<int> hardwareSupportedQns = {};
+        for (final v in rawVideoList) {
+          if (v is Map<String, dynamic> && isHardwareSupported(v)) {
+            final id = v['id'] as int? ?? 0;
+            if (id > 0) {
+              hardwareSupportedQns.add(id);
+            }
+          }
+        }
+
         final List<VideoQualityItem> qualities = [];
         for (int i = 0; i < acceptQnList.length; i++) {
           final int q = acceptQnList[i] as int;
           final String desc = i < acceptDescList.length
               ? acceptDescList[i].toString()
               : _mapQnToDescription(q);
-          qualities.add(VideoQualityItem(qn: q, desc: desc));
+
+          // 8K(127) 或该清晰度无电视硬件硬解轨时标记为不支持
+          final bool isSupported = q != 127 &&
+              (hardwareSupportedQns.isEmpty || hardwareSupportedQns.contains(q));
+          qualities.add(VideoQualityItem(
+            qn: q,
+            desc: desc,
+            isHardwareSupported: isSupported,
+          ));
         }
 
         String playUrl = '';
@@ -255,6 +283,47 @@ class PlayerRepository {
     }
   }
 
+  /// 解析 B 站 DASH 流的帧率 (例如 "120.000", "60.000", "30.000", "120000/1000")
+  static double _parseFrameRate(dynamic frameRate) {
+    if (frameRate == null) return 0.0;
+    if (frameRate is num) return frameRate.toDouble();
+    final str = frameRate.toString().trim();
+    if (str.isEmpty) return 0.0;
+    if (str.contains('/')) {
+      final parts = str.split('/');
+      final num = double.tryParse(parts[0]) ?? 0.0;
+      final den = double.tryParse(parts[1]) ?? 1.0;
+      return den > 0 ? num / den : 0.0;
+    }
+    return double.tryParse(str) ?? 0.0;
+  }
+
+  /// 校验视频轨是否在电视芯片硬件硬解能力范围内 (MediaTek Pentonic MT5877/MT9655)
+  /// 1. 分辨率上限: 4096x2304 (超出将导致 MediaCodec 显存耗尽报 ERROR_NO_MEMORY)
+  /// 2. 硬件吞吐量上限: 2,211,840 宏块/秒 (blocks/sec)
+  ///    - 4K (3840x2160) 单帧 32,400 宏块，在 60fps 下为 1,944,000 blocks/sec (完全硬件解码流畅支持)
+  ///    - 4K 120fps (如 8K 降采稿件) 达到 3,888,000 blocks/sec，硬件驱动报 ERR_CODE_FRMRATE_NOT_SUPPORT 崩溃黑屏 (过滤)
+  ///    - 1080P (1920x1080) 单帧 8,160 宏块，在 120fps 下为 979,200 blocks/sec (完全硬件解码支持)
+  static bool isHardwareSupported(Map<String, dynamic> track) {
+    final width = track['width'] as int? ?? 0;
+    final height = track['height'] as int? ?? 0;
+    if (width <= 0 || height <= 0) return true;
+
+    // 1. 分辨率硬解上限
+    if (width > 4096 || height > 2304) return false;
+
+    // 2. 吞吐性能点校验
+    final fps = _parseFrameRate(track['frameRate'] ?? track['frame_rate']);
+    if (fps > 0) {
+      final blocksPerFrame = ((width + 15) ~/ 16) * ((height + 15) ~/ 16);
+      final blocksPerSec = blocksPerFrame * fps;
+      if (blocksPerSec > 2211840) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /// 从满足目标清晰度的多个轨中，智能优选具备最高硬件硬解兼容性的编码轨
   /// 优先级策略：
   /// 1. HEVC (H.265, codecid: 12 / hvc1 / hev1 / dvh1)：得分最高 (300分)。
@@ -269,20 +338,48 @@ class PlayerRepository {
     List<dynamic> videoList,
     int targetQn,
   ) {
-    final List<Map<String, dynamic>> matchedTracks = [];
     for (final v in videoList) {
-      if (v is Map<String, dynamic> && v['id'] == targetQn) {
+      if (v is Map<String, dynamic>) {
+        debugPrint(
+          '[PlayerRepository] 候选轨: id=${v['id']}, codecid=${v['codecid']}, frameRate=${v['frameRate'] ?? v['frame_rate']}, ${v['width']}x${v['height']}, codecs=${v['codecs']}, bandwidth=${v['bandwidth']}',
+        );
+      }
+    }
+
+    // 关键硬件保护：过滤超过电视芯片硬解极限 (4096x2304 / 4K 120fps 超吞吐) 的超规格视频轨
+    // 彻底避免 MediaCodec 报 ERROR_NO_MEMORY 或 ERR_CODE_FRMRATE_NOT_SUPPORT 崩溃导致黑屏
+    final List<Map<String, dynamic>> validTracks = [];
+    for (final v in videoList) {
+      if (v is Map<String, dynamic>) {
+        if (!isHardwareSupported(v)) {
+          debugPrint(
+            '[PlayerRepository] 过滤超出硬件解码极限的超规格轨: id=${v['id']}, ${v['width']}x${v['height']}, frameRate=${v['frameRate'] ?? v['frame_rate']}, codecs=${v['codecs']}',
+          );
+          continue;
+        }
+        validTracks.add(v);
+      }
+    }
+
+    if (validTracks.isEmpty) {
+      // 极端兜底：如果全部轨都被过滤，回退至原列表
+      for (final v in videoList) {
+        if (v is Map<String, dynamic>) {
+          validTracks.add(v);
+        }
+      }
+    }
+
+    final List<Map<String, dynamic>> matchedTracks = [];
+    for (final v in validTracks) {
+      if (v['id'] == targetQn) {
         matchedTracks.add(v);
       }
     }
 
     if (matchedTracks.isEmpty) {
-      // 若无精确匹配画质，在全部可用轨中降级回退
-      for (final v in videoList) {
-        if (v is Map<String, dynamic>) {
-          matchedTracks.add(v);
-        }
-      }
+      // 若无精确匹配画质，在全部可用有效轨中降级回退
+      matchedTracks.addAll(validTracks);
     }
 
     if (matchedTracks.isEmpty) return null;

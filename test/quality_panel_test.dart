@@ -213,4 +213,67 @@ void main() {
     await tester.pump();
     expect(selectedQn, 125);
   });
+
+  testWidgets(
+      'TvQualityPanel marks 8K (qn: 127) as unsupported by hardware and shows warning on tap',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(prefs);
+
+    int selectedQn = 0;
+
+    const testQualities = [
+      VideoQualityItem(qn: 127, desc: '超高清 8K'),
+      VideoQualityItem(qn: 120, desc: '4K 超清'),
+      VideoQualityItem(qn: 80, desc: '1080P 高清'),
+    ];
+
+    final vipUser = const UserInfoModel(
+      mid: 10002,
+      uname: '大会员用户',
+      isLogin: true,
+      vipStatus: 1,
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          storageServiceProvider.overrideWithValue(storage),
+          authProvider.overrideWith(
+            () => _FakeAuthNotifier(
+              AuthState(isLoggedIn: true, user: vipUser),
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          builder: Dpad.wrap(),
+          home: Scaffold(
+            body: TvQualityPanel(
+              qualities: testQualities,
+              currentQn: 120,
+              onSelectQuality: (qn) => selectedQn = qn,
+              onClose: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 8K 必须带有 [设备不支持] 标识
+    expect(find.text('设备不支持'), findsOneWidget);
+
+    // 点击 8K 不会触发切换，弹出电视芯片不支持 8K 硬解提示
+    await tester.tap(find.text('超高清 8K'));
+    await tester.pump();
+    expect(selectedQn, 0);
+    expect(find.textContaining('暂不支持8K超高清解码'), findsOneWidget);
+  });
 }

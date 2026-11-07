@@ -70,8 +70,8 @@ class PlayerNotifier extends Notifier<PlayerState> {
     try {
       final p = _player;
       if (p != null) {
-        p.setVolume(0);
-        p.pause();
+        p.setVolume(0).catchError((_) {});
+        p.pause().catchError((_) {});
       }
     } catch (_) {}
   }
@@ -80,16 +80,16 @@ class PlayerNotifier extends Notifier<PlayerState> {
   void _safeDisposePlayer(Player? p) {
     if (p == null) return;
     try {
-      p.setVolume(0);
+      p.setVolume(0).catchError((_) {});
     } catch (_) {}
     try {
-      p.pause();
+      p.pause().catchError((_) {});
     } catch (_) {}
     try {
-      p.stop();
+      p.stop().catchError((_) {});
     } catch (_) {}
     try {
-      p.dispose();
+      p.dispose().catchError((_) {});
     } catch (_) {}
   }
 
@@ -579,54 +579,9 @@ class PlayerNotifier extends Notifier<PlayerState> {
             : state.qualities,
       );
 
-      // 优化：若当前已有存活的播放器与视频控制器，直接无缝切流并继承进度
-      // 杜绝反复销毁/重建 Player 与 Native Surface 导致的黑屏停顿与 JNI 资源抖动
-      if (_player != null && _videoController != null) {
-        final player = _player!;
-        final dynamic platform = player.platform;
-
-        // 1. 更新独立音轨 (audio-files)
-        if (playInfo.audioUrl.isNotEmpty) {
-          Media(
-            playInfo.audioUrl,
-            httpHeaders: const {
-              'Referer': ApiConstants.defaultReferer,
-              'User-Agent': ApiConstants.defaultUserAgent,
-            },
-          );
-          final safeAudioUrl = Platform.isWindows
-              ? playInfo.audioUrl.replaceAll(';', '\\;')
-              : playInfo.audioUrl.replaceAll(':', '\\:');
-          await platform?.setProperty('audio-files', safeAudioUrl);
-        } else {
-          await platform?.setProperty('audio-files', '');
-        }
-
-        // 2. 直接打开新画质视频流，实现无闪烁、无销毁的无缝续播
-        await player.open(
-          Media(
-            playInfo.playUrl,
-            httpHeaders: const {
-              'Referer': ApiConstants.defaultReferer,
-              'User-Agent': ApiConstants.defaultUserAgent,
-            },
-            start: currentPos,
-          ),
-          play: true,
-        );
-
-        if (!_isDisposed) {
-          state = state.copyWith(
-            isLoading: false,
-            isPlaying: true,
-            error: null,
-          );
-          _resetHideControlsTimer();
-        }
-        return;
-      }
-
-      // 兜底：若播放器尚未创建，走全量构建流程
+      // 对于 Android TV 平台与 mediacodec_embed 驱动，切换分辨率/编解码器时，
+      // 底层 MediaCodec 和 Native Surface 必须完整重建与重绑定，
+      // 避免旧 Surface 在分辨率变更时报 ERROR_NO_MEMORY 或 "Could not open codec" 导致黑屏
       await _setupController(
         playInfo.playUrl,
         audioUrl: playInfo.audioUrl,
@@ -692,14 +647,14 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 异步并行获取附加数据 (分P选集、在线人数、点赞状态)
   Future<void> _loadExtraVideoData(String bvid, int currentCid) async {
-    if (_isDisposed) return;
+    if (_isDisposed || !ref.mounted) return;
     try {
       final partsFuture = _repository.fetchPageList(bvid);
       final onlineFuture = _repository.fetchOnlineTotal(bvid: bvid, cid: currentCid);
       final likeFuture = _repository.fetchHasLike(bvid);
 
       final results = await Future.wait([partsFuture, onlineFuture, likeFuture]);
-      if (_isDisposed) return;
+      if (_isDisposed || !ref.mounted) return;
 
       final parts = results[0] as List<VideoPartItem>;
       final online = results[1] as String;
@@ -720,7 +675,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
         isLiked: hasLike,
       );
     } catch (e) {
-      if (!_isDisposed) {
+      if (!_isDisposed && ref.mounted) {
         debugPrint('[PlayerNotifier] 获取额外数据异常: $e');
       }
     }

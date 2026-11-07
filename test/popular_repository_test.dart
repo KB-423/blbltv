@@ -180,5 +180,26 @@ void main() {
       final selected = playerRepository.selectBestCodecTrack(tracks, 120);
       expect(selected?['bandwidth'], 6000000);
     });
+
+    test('selectBestCodecTrack filters out tracks exceeding hardware limits (4096x2304) such as 8K', () {
+      final tracks = [
+        {'id': 127, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'width': 7680, 'height': 4320, 'bandwidth': 20000000},
+        {'id': 120, 'codecid': 12, 'codecs': 'hev1.1.6.L120.90', 'width': 3840, 'height': 2160, 'bandwidth': 8000000},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 127);
+      expect(selected?['id'], 120);
+      expect(selected?['width'], 3840);
+    });
+
+    test('selectBestCodecTrack filters out 4K 120fps tracks that exceed hardware blocks-per-second limit', () {
+      final tracks = [
+        {'id': 120, 'codecid': 12, 'codecs': 'hvc1.1.6.L156.90', 'width': 3840, 'height': 2160, 'frameRate': '120.000', 'bandwidth': 4128114},
+        {'id': 116, 'codecid': 12, 'codecs': 'hvc1.1.6.L150.90', 'width': 1920, 'height': 1080, 'frameRate': '60.000', 'bandwidth': 1109528},
+      ];
+      final selected = playerRepository.selectBestCodecTrack(tracks, 120);
+      expect(selected?['id'], 116);
+      expect(selected?['width'], 1920);
+      expect(selected?['frameRate'], '60.000');
+    });
   });
 }

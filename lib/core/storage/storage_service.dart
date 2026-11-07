@@ -28,9 +28,17 @@ class StorageService {
   }
 
   // 用户偏好画质 (默认 120 为 4K/自动最高，无缝记住用户选择)
-  int get preferredQuality => _prefs.getInt('key_preferred_qn') ?? 120;
-  Future<bool> setPreferredQuality(int qn) =>
-      _prefs.setInt('key_preferred_qn', qn);
+  int get preferredQuality {
+    final val = _prefs.getInt('key_preferred_qn') ?? 120;
+    // 保护：电视芯片硬解极限为 4K (qn: 120 / 125 HDR)，若曾存入 8K (127)，自动降级为 120
+    if (val > 125) return 120;
+    return val;
+  }
+  Future<bool> setPreferredQuality(int qn) {
+    // 电视芯片硬解上限为 4K，防止存储 8K 画质
+    final safeQn = qn > 125 ? 120 : qn;
+    return _prefs.setInt('key_preferred_qn', safeQn);
+  }
 
   // 设备 HDR 输出能力开关 (历史留存配置)
   bool get isHdrEnabled => _prefs.getBool('key_enable_hdr') ?? false;

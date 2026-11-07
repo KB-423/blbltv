@@ -9,6 +9,7 @@ abstract class VideoQualityItem with _$VideoQualityItem {
   const factory VideoQualityItem({
     required int qn,
     required String desc,
+    @Default(true) bool isHardwareSupported,
   }) = _VideoQualityItem;
 
   factory VideoQualityItem.fromJson(Map<String, dynamic> json) =>

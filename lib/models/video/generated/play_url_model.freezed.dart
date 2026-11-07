@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$VideoQualityItem {
 
- int get qn; String get desc;
+ int get qn; String get desc; bool get isHardwareSupported;
 /// Create a copy of VideoQualityItem
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +30,20 @@ $VideoQualityItemCopyWith<VideoQualityItem> get copyWith => _$VideoQualityItemCo
 @override
 bool operator ==(Object other) {
   final _this = this as VideoQualityItem;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoQualityItem&&(identical(other.qn, _this.qn) || other.qn == _this.qn)&&(identical(other.desc, _this.desc) || other.desc == _this.desc));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VideoQualityItem&&(identical(other.qn, _this.qn) || other.qn == _this.qn)&&(identical(other.desc, _this.desc) || other.desc == _this.desc)&&(identical(other.isHardwareSupported, _this.isHardwareSupported) || other.isHardwareSupported == _this.isHardwareSupported));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as VideoQualityItem;
-  return Object.hash(runtimeType,_this.qn,_this.desc);
+  return Object.hash(runtimeType,_this.qn,_this.desc,_this.isHardwareSupported);
 }
 
 @override
 String toString() {
   final _this = this as VideoQualityItem;
-  return 'VideoQualityItem(qn: ${_this.qn}, desc: ${_this.desc})';
+  return 'VideoQualityItem(qn: ${_this.qn}, desc: ${_this.desc}, isHardwareSupported: ${_this.isHardwareSupported})';
 }
 
 
@@ -54,7 +54,7 @@ abstract mixin class $VideoQualityItemCopyWith<$Res>  {
   factory $VideoQualityItemCopyWith(VideoQualityItem value, $Res Function(VideoQualityItem) _then) = _$VideoQualityItemCopyWithImpl;
 @useResult
 $Res call({
- int qn, String desc
+ int qn, String desc, bool isHardwareSupported
 });
 
 
@@ -71,11 +71,12 @@ class _$VideoQualityItemCopyWithImpl<$Res>
 
 /// Create a copy of VideoQualityItem
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? qn = null,Object? desc = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? qn = null,Object? desc = null,Object? isHardwareSupported = null,}) {
   return _then(VideoQualityItem(
 qn: null == qn ? _self.qn : qn // ignore: cast_nullable_to_non_nullable
 as int,desc: null == desc ? _self.desc : desc // ignore: cast_nullable_to_non_nullable
-as String,
+as String,isHardwareSupported: null == isHardwareSupported ? _self.isHardwareSupported : isHardwareSupported // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -160,10 +161,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int qn,  String desc)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int qn,  String desc,  bool isHardwareSupported)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _VideoQualityItem() when $default != null:
-return $default(_that.qn,_that.desc);case _:
+return $default(_that.qn,_that.desc,_that.isHardwareSupported);case _:
   return orElse();
 
 }
@@ -181,10 +182,10 @@ return $default(_that.qn,_that.desc);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int qn,  String desc)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int qn,  String desc,  bool isHardwareSupported)  $default,) {final _that = this;
 switch (_that) {
 case _VideoQualityItem():
-return $default(_that.qn,_that.desc);case _:
+return $default(_that.qn,_that.desc,_that.isHardwareSupported);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -201,10 +202,10 @@ return $default(_that.qn,_that.desc);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int qn,  String desc)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int qn,  String desc,  bool isHardwareSupported)?  $default,) {final _that = this;
 switch (_that) {
 case _VideoQualityItem() when $default != null:
-return $default(_that.qn,_that.desc);case _:
+return $default(_that.qn,_that.desc,_that.isHardwareSupported);case _:
   return null;
 
 }
@@ -216,11 +217,12 @@ return $default(_that.qn,_that.desc);case _:
 @JsonSerializable()
 
 class _VideoQualityItem implements VideoQualityItem {
-  const _VideoQualityItem({required this.qn, required this.desc});
+  const _VideoQualityItem({required this.qn, required this.desc, this.isHardwareSupported = true});
   factory _VideoQualityItem.fromJson(Map<String, dynamic> json) => _$VideoQualityItemFromJson(json);
 
 @override final  int qn;
 @override final  String desc;
+@override@JsonKey() final  bool isHardwareSupported;
 
 /// Create a copy of VideoQualityItem
 /// with the given fields replaced by the non-null parameter values.
@@ -235,18 +237,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoQualityItem&&(identical(other.qn, qn) || other.qn == qn)&&(identical(other.desc, desc) || other.desc == desc));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _VideoQualityItem&&(identical(other.qn, qn) || other.qn == qn)&&(identical(other.desc, desc) || other.desc == desc)&&(identical(other.isHardwareSupported, isHardwareSupported) || other.isHardwareSupported == isHardwareSupported));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,qn,desc);
+    return Object.hash(runtimeType,qn,desc,isHardwareSupported);
 }
 
 @override
 String toString() {
-    return 'VideoQualityItem(qn: $qn, desc: $desc)';
+    return 'VideoQualityItem(qn: $qn, desc: $desc, isHardwareSupported: $isHardwareSupported)';
 }
 
 
@@ -257,7 +259,7 @@ abstract mixin class _$VideoQualityItemCopyWith<$Res> implements $VideoQualityIt
   factory _$VideoQualityItemCopyWith(_VideoQualityItem value, $Res Function(_VideoQualityItem) _then) = __$VideoQualityItemCopyWithImpl;
 @override @useResult
 $Res call({
- int qn, String desc
+ int qn, String desc, bool isHardwareSupported
 });
 
 
@@ -274,11 +276,12 @@ class __$VideoQualityItemCopyWithImpl<$Res>
 
 /// Create a copy of VideoQualityItem
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? qn = null,Object? desc = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? qn = null,Object? desc = null,Object? isHardwareSupported = null,}) {
   return _then(_VideoQualityItem(
 qn: null == qn ? _self.qn : qn // ignore: cast_nullable_to_non_nullable
 as int,desc: null == desc ? _self.desc : desc // ignore: cast_nullable_to_non_nullable
-as String,
+as String,isHardwareSupported: null == isHardwareSupported ? _self.isHardwareSupported : isHardwareSupported // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

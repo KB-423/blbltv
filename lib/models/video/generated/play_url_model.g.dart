@@ -10,10 +10,15 @@ _VideoQualityItem _$VideoQualityItemFromJson(Map<String, dynamic> json) =>
     _VideoQualityItem(
       qn: (json['qn'] as num).toInt(),
       desc: json['desc'] as String,
+      isHardwareSupported: json['isHardwareSupported'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$VideoQualityItemToJson(_VideoQualityItem instance) =>
-    <String, dynamic>{'qn': instance.qn, 'desc': instance.desc};
+    <String, dynamic>{
+      'qn': instance.qn,
+      'desc': instance.desc,
+      'isHardwareSupported': instance.isHardwareSupported,
+    };
 
 _VideoPlayInfo _$VideoPlayInfoFromJson(Map<String, dynamic> json) =>
     _VideoPlayInfo(

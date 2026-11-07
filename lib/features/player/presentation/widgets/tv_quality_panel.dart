@@ -223,13 +223,20 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
                       final isCurrent = item.qn == widget.currentQn;
                       final focusNode = _qualityFocusNodes[item.qn];
 
+                      // 0. 设备硬件硬解支持判断 (8K 或超吞吐极限的 4K 120fps 等)
+                      final bool is8kItem = item.qn == 127;
+                      final bool isHwSupportedByMedia =
+                          item.isHardwareSupported && !is8kItem;
+
                       // 1. 设备硬件 HDR / 杜比视界支持判断
                       final bool isDolbyItem = item.qn == 126;
                       final bool isHdr10Item = item.qn == 125;
                       final bool isHdrItem = isDolbyItem || isHdr10Item;
 
-                      bool isDeviceSupported = true;
-                      if (isDolbyItem) {
+                      bool isDeviceSupported = isHwSupportedByMedia;
+                      if (!isHwSupportedByMedia) {
+                        isDeviceSupported = false;
+                      } else if (isDolbyItem) {
                         isDeviceSupported = displayCapability.hasDolbyVision;
                       } else if (isHdr10Item) {
                         isDeviceSupported = displayCapability.hasHdr10 ||
@@ -243,8 +250,14 @@ class _TvQualityPanelState extends ConsumerState<TvQualityPanel> {
 
                       if (!isDeviceSupported) {
                         lockBadge = '设备不支持';
-                        lockReason =
-                            '当前设备或显示屏不支持 ${isDolbyItem ? "杜比视界" : "HDR10"} 硬件渲染';
+                        if (!isHwSupportedByMedia) {
+                          lockReason = is8kItem
+                              ? '当前电视芯片硬件最高支持4K硬解，暂不支持8K超高清解码'
+                              : '当前电视芯片硬件最高支持4K 60fps硬解，暂不支持该稿件的120fps超高帧率';
+                        } else {
+                          lockReason =
+                              '当前设备或显示屏不支持 ${isDolbyItem ? "杜比视界" : "HDR10"} 硬件渲染';
+                        }
                       } else if (!isLoggedIn && item.qn >= 80) {
                         isAuthPermitted = false;
                         lockBadge = '需登录';
