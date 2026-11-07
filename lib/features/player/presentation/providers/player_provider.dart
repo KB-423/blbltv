@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
@@ -7,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/utils/tv_player_engine_helper.dart';
 import '../../../../models/video/video_part_model.dart';
 import '../../data/repositories/player_repository.dart';
 import 'player_state.dart';
@@ -78,19 +78,7 @@ class PlayerNotifier extends Notifier<PlayerState> {
 
   /// 安全释放底层 Player 实例，防止重复销毁触发 MediaKit 断言崩溃
   void _safeDisposePlayer(Player? p) {
-    if (p == null) return;
-    try {
-      p.setVolume(0).catchError((_) {});
-    } catch (_) {}
-    try {
-      p.pause().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.stop().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.dispose().catchError((_) {});
-    } catch (_) {}
+    TvPlayerEngineHelper.safeDisposePlayer(p);
   }
 
   /// 停止音频与视频输出并销毁 MPV 实例，彻底消除退出界面后声音还在继续的竞态问题
@@ -239,158 +227,39 @@ class PlayerNotifier extends Notifier<PlayerState> {
     if (_isDisposed) return;
 
     try {
-      // 通过 PlayerConfiguration 扩大 4K 高码率解复用网络缓存 (128MB)
-      final player = Player(
-        configuration: const PlayerConfiguration(
-          bufferSize: 128 * 1024 * 1024,
-        ),
+      // 1. 创建优化 4K 高码率解复用网络缓存 (128MB) 的底层 Player 实例
+      final player = TvPlayerEngineHelper.createPlayer(
+        bufferSize: 128 * 1024 * 1024,
       );
-      // 立即挂载底层实例句柄，确保任何中途退出或销毁操作都能立即调用 player.stop() 与 dispose()
       _player = player;
       final dynamic platform = player.platform;
 
       if (_isDisposed) {
-        _safeDisposePlayer(player);
+        TvPlayerEngineHelper.safeDisposePlayer(player);
         _player = null;
         return;
       }
 
-      // 关键：初始锁定暂停状态，严禁底层在未完成音画混合时偷跑音频
-      await platform?.setProperty('pause', 'yes');
-
-      // 0. 网络高清流预读与大屏解复用器性能调优 (专为 4K 60fps 高码率调优)
-      // 扩大解复用缓存与预读时间，彻底杜绝外挂音轨因网络抖动引起音视频时间戳失调
-      await platform?.setProperty('demuxer-readahead-secs', '60');
-      await platform?.setProperty('demuxer-max-bytes', '${160 * 1024 * 1024}');
-      await platform?.setProperty('demuxer-max-back-bytes', '${48 * 1024 * 1024}');
-      await platform?.setProperty('cache-secs', '60');
-      await platform?.setProperty('network-timeout', '15');
-      await platform?.setProperty('force-seekable', 'yes');
-
-      // 0.1 强制显式启用 Android 原生 mediacodec 直通硬件解码
-      if (Platform.isAndroid) {
-        await platform?.setProperty('hwdec', 'mediacodec');
-        await platform?.setProperty('hwdec-codecs', 'all');
-      } else {
-        await platform?.setProperty('hwdec', 'auto');
-      }
-
-      // 0.2 TV SOC (Mali GPU) 4K 极速渲染着色器配置 (解决 4K 严重丢帧核心方案)
-      // 启用 profile=fast 并禁用耗费算力的抖动与高阶滤波算法，避免每秒 5 亿像素渲染拖垮电视 GPU
-      await platform?.setProperty('profile', 'fast');
-      await platform?.setProperty('scale', 'bilinear');
-      await platform?.setProperty('cscale', 'bilinear');
-      await platform?.setProperty('dscale', 'bilinear');
-      await platform?.setProperty('dither', 'no');
-      await platform?.setProperty('dither-depth', 'no');
-      await platform?.setProperty('deband', 'no');
-      await platform?.setProperty('correct-downscaling', 'no');
-      await platform?.setProperty('linear-downscaling', 'no');
-      await platform?.setProperty('sigmoid-upscaling', 'no');
-      await platform?.setProperty('hdr-compute-peak', 'no');
-
-      // 1. Android 电视平台专用音频驱动配置与音画严格同步 (A/V Sync)
-      // 关键：必须使用 opensles 纯 C 原生音频驱动！
-      // 绝对严禁使用 audiotrack，因为 audiotrack 依赖 Java JNI 反射调用，在 Android 15/16 CheckJNI 下因 CheckMethodID 触发 JniAbort 导致应用原生闪退！
-      if (Platform.isAndroid) {
-        await platform?.setProperty('volume-max', '100');
-        await platform?.setProperty('ao', 'opensles');
-      }
-
-      // 音视频高精度同步配置，彻底杜绝外挂音轨音画不同步
-      await platform?.setProperty('video-sync', 'audio');
-      await platform?.setProperty('framedrop', 'vo');
-      await platform?.setProperty('video-sync-max-video-change', '5');
-      await platform?.setProperty('hr-seek', 'yes');
-      await platform?.setProperty('hr-seek-framedrop', 'yes');
-      await platform?.setProperty('audio-pitch-correction', 'no');
-      await platform?.setProperty('autosync', '30');
-
-      if (_isDisposed) {
-        _safeDisposePlayer(player);
-        _player = null;
-        return;
-      }
-
-      // 2. 原生 HDR 硬件直通与色彩空间提示配置
-      // 在 Android 上 mediacodec 会直接将 HDR 帧渲染至 Surface，设置 target-colorspace-hint 或 target-trc 会导致 EGL 初始化失败
-      if (!Platform.isAndroid) {
-        await platform?.setProperty('target-colorspace-hint', 'yes');
-        await platform?.setProperty('target-trc', 'auto');
-        await platform?.setProperty('target-prim', 'auto');
-        await platform?.setProperty('tone-mapping', 'auto');
-      }
-
-      // 3. 配置 DASH 独立音轨 (解决声音缺失核心痛点)
-      // 关键 1: 必须为 audioUrl 预先注册附带 Referer 防盗链的 Media 缓存，否则 B 站 CDN 返回 403 静音
-      // 关键 2: 在 player.open 之前通过 audio-files 属性挂载，保证音视频流同步初始化
-      if (audioUrl.isNotEmpty) {
-        Media(
-          audioUrl,
-          httpHeaders: const {
-            'Referer': ApiConstants.defaultReferer,
-            'User-Agent': ApiConstants.defaultUserAgent,
-          },
-        );
-
-        final safeAudioUrl = Platform.isWindows
-            ? audioUrl.replaceAll(';', '\\;')
-            : audioUrl.replaceAll(':', '\\:');
-        await platform?.setProperty('audio-files', safeAudioUrl);
-      }
-
-      if (_isDisposed) {
-        _safeDisposePlayer(player);
-        _player = null;
-        return;
-      }
-
-      final videoController = VideoController(
-        player,
-        configuration: VideoControllerConfiguration(
-          enableHardwareAcceleration: true,
-          hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
-          vo: Platform.isAndroid ? 'mediacodec_embed' : 'gpu',
-        ),
+      // 2. 针对 Android TV 大屏 MediaCodec 硬解直通与极速渲染着色器配置
+      await TvPlayerEngineHelper.configurePlatformProperties(
+        platform,
+        audioUrl: audioUrl,
+        isLive: false,
       );
 
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        return;
+      }
+
+      // 3. 创建配置了 mediacodec + mediacodec_embed 原生 Surface 的控制器
+      final videoController = TvPlayerEngineHelper.createVideoController(player);
       _player = player;
       _videoController = videoController;
 
-      // 关键时序保障：等待 Android Native Surface 完全绑定到 MPV 实例
-      // 杜绝冷启动时在 Surface 缺失状态下提早解码导致 MediaCodec 降级为 isSurface:0 (Buffer拷贝模式) 造成严重丢帧！
-      if (Platform.isAndroid) {
-        try {
-          final dynamic platformController =
-              await videoController.platform.future;
-          final dynamic widNotifier = platformController?.wid;
-          if (widNotifier is ValueNotifier<int?> && widNotifier.value == null) {
-            final widCompleter = Completer<void>();
-            void onWidChanged() {
-              if (widNotifier.value != null && !widCompleter.isCompleted) {
-                widCompleter.complete();
-              }
-            }
-
-            widNotifier.addListener(onWidChanged);
-            // 设置 800ms 保护闸门，一旦 Surface 附着完毕立即触发唤醒
-            await widCompleter.future.timeout(
-              const Duration(milliseconds: 800),
-              onTimeout: () {},
-            );
-            widNotifier.removeListener(onWidChanged);
-          }
-        } catch (e) {
-          debugPrint('[PlayerNotifier] 等待 Native Surface 异常: $e');
-        }
-      } else {
-        try {
-          await videoController.platform.future.timeout(
-            const Duration(milliseconds: 500),
-            onTimeout: () => videoController.platform.future,
-          );
-        } catch (_) {}
-      }
+      // 4. 等待 Android Native Surface 完全绑定，杜绝在 Surface 缺失下提早解码导致降级为软解 Buffer 拷贝模式
+      await TvPlayerEngineHelper.waitForSurfaceReady(videoController);
 
       if (_isDisposed) {
         _safeDisposePlayer(player);

@@ -7,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/back_navigation_debounce.dart';
+import '../../../../router/route_paths.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../providers/player_provider.dart';
 import '../widgets/tv_player_controls.dart';
@@ -132,16 +133,26 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
       _isExiting = true;
       // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音，画面保留最后一帧出栈过渡
       notifier.pauseAndStopAudio();
-      if (context.mounted) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+      _safeNavigateBack(context, RoutePaths.home);
+    }
+  }
+
+  void _safeNavigateBack(BuildContext context, String fallbackPath) {
+    if (!context.mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    try {
+      final router = GoRouter.maybeOf(context);
+      if (router != null) {
+        if (router.canPop()) {
+          router.pop();
         } else {
-          try {
-            context.pop();
-          } catch (_) {}
+          router.go(fallbackPath);
         }
       }
-    }
+    } catch (_) {}
   }
 
   /// 启动长按快进/快退检测与累积推进
@@ -466,15 +477,7 @@ class _TvPlayerScreenState extends ConsumerState<TvPlayerScreen>
                 onBack: () {
                   // 点击控制栏返回按钮：第 0 毫秒立即掐断音频
                   notifier.pauseAndStopAudio();
-                  if (context.mounted) {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      try {
-                        context.pop();
-                      } catch (_) {}
-                    }
-                  }
+                  _safeNavigateBack(context, RoutePaths.home);
                 },
               ),
 

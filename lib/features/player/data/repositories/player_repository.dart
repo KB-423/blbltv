@@ -164,6 +164,8 @@ class PlayerRepository {
   Future<VideoPlayInfo> fetchPlayUrl({
     required String bvid,
     required int cid,
+    int? epId,
+    bool isBangumi = false,
     int qn = 120, // 默认申请高规格画质，由服务端根据会员身份自动协商下发
   }) async {
     // 动态硬件上限限制：若请求清晰度超过设备硬件硬解能力上限，自动安全降级
@@ -173,21 +175,37 @@ class PlayerRepository {
     // 动态协商 fnval：若设备支持 8K 硬解，开启 4048(带 8K)；若设备最高支持 4K/1080P，开启 3024(不带 8K)
     final int appropriateFnval = _codecCapability.appropriateFnval;
     try {
-      final res = await _apiClient.getWbi<Map<String, dynamic>>(
-        ApiConstants.videoPlayUrl,
-        queryParameters: {
-          'bvid': bvid,
-          'cid': cid,
-          'qn': safeQn,
-          'fnval': appropriateFnval,
-          'fourk': 1,
-          'fnver': 0,
-        },
-      );
+      final Map<String, dynamic> queryParams = {
+        'bvid': bvid,
+        'cid': cid,
+        'qn': safeQn,
+        'fnval': appropriateFnval,
+        'fourk': 1,
+        'fnver': 0,
+      };
+      if (epId != null && epId > 0) {
+        queryParams['ep_id'] = epId;
+      }
+
+      final Response<Map<String, dynamic>> res;
+      if (isBangumi || (epId != null && epId > 0)) {
+        res = await _apiClient.get<Map<String, dynamic>>(
+          ApiConstants.bangumiPlayUrl,
+          queryParameters: queryParams,
+        );
+      } else {
+        res = await _apiClient.getWbi<Map<String, dynamic>>(
+          ApiConstants.videoPlayUrl,
+          queryParameters: queryParams,
+        );
+      }
 
       final data = res.data;
-      if (data != null && data['code'] == 0 && data['data'] != null) {
-        final playData = data['data'];
+      if (data != null &&
+          data['code'] == 0 &&
+          (data['data'] != null || data['result'] != null)) {
+        final playData =
+            (data['data'] ?? data['result']) as Map<String, dynamic>;
         final int currentQn = playData['quality'] as int? ?? qn;
 
         // 解析支持的全部清晰度列表 (按服务端排序或降序排列)

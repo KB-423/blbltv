@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +6,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/constants/api_constants.dart';
+import '../../../../core/utils/tv_player_engine_helper.dart';
 import '../../data/models/live_room_item_model.dart';
 import '../../data/repositories/live_repository.dart';
 import 'live_player_state.dart';
@@ -68,22 +68,6 @@ class LivePlayerNotifier extends Notifier<LivePlayerState> {
     } catch (_) {}
   }
 
-  void _safeDisposePlayer(Player? p) {
-    if (p == null) return;
-    try {
-      p.setVolume(0).catchError((_) {});
-    } catch (_) {}
-    try {
-      p.pause().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.stop().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.dispose().catchError((_) {});
-    } catch (_) {}
-  }
-
   void _stopAndDispose() {
     if (_isDisposed) return;
     _isDisposed = true;
@@ -95,7 +79,7 @@ class LivePlayerNotifier extends Notifier<LivePlayerState> {
     _player = null;
     _videoController = null;
 
-    _safeDisposePlayer(p);
+    TvPlayerEngineHelper.safeDisposePlayer(p);
   }
 
   /// 绑定初始传入的房间元数据
@@ -132,35 +116,58 @@ class LivePlayerNotifier extends Notifier<LivePlayerState> {
   }
 
   Future<void> _setupController(String playUrl) async {
+    if (_isDisposed) return;
+
     final oldPlayer = _player;
     _player = null;
     _videoController = null;
-    _safeDisposePlayer(oldPlayer);
+    _cancelSubscriptions();
+
+    if (oldPlayer != null) {
+      TvPlayerEngineHelper.safeDisposePlayer(oldPlayer);
+    }
+
+    if (_isDisposed) return;
 
     try {
-      final player = Player(
-        configuration: const PlayerConfiguration(
-          bufferSize: 32 * 1024 * 1024,
-        ),
+      // 1. 创建直播优化的底层 Player 实例
+      final player = TvPlayerEngineHelper.createPlayer(
+        bufferSize: 32 * 1024 * 1024,
       );
       _player = player;
 
-      final controller = VideoController(
-        player,
-        configuration: const VideoControllerConfiguration(
-          enableHardwareAcceleration: true,
-          androidAttachSurfaceAfterVideoParameters: true,
-        ),
-      );
-      _videoController = controller;
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        return;
+      }
 
       final dynamic platform = player.platform;
-      if (Platform.isAndroid) {
-        await platform?.setProperty('volume-max', '100');
-        await platform?.setProperty('ao', 'opensles');
-        await platform?.setProperty('hwdec', 'mediacodec_embed');
-        await platform?.setProperty('opengl-es', 'yes');
-        await platform?.setProperty('video-sync', 'audio');
+
+      // 2. 针对 Android TV 大屏 MediaCodec 硬解直通与极速渲染着色器配置 (Live 模式)
+      await TvPlayerEngineHelper.configurePlatformProperties(
+        platform,
+        isLive: true,
+      );
+
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        return;
+      }
+
+      // 3. 创建配置了 mediacodec + mediacodec_embed 原生 Surface 的控制器
+      final controller = TvPlayerEngineHelper.createVideoController(player);
+      _videoController = controller;
+
+      // 4. 等待 Android Native Surface 完全绑定，杜绝在 Surface 缺失下提早解码
+      await TvPlayerEngineHelper.waitForSurfaceReady(controller);
+
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        _videoController = null;
+        return;
       }
 
       _cancelSubscriptions();
@@ -196,6 +203,7 @@ class LivePlayerNotifier extends Notifier<LivePlayerState> {
         state = state.copyWith(
           isLoading: false,
           isPlaying: true,
+          error: null,
         );
         _resetHideControlsTimer();
       }
@@ -234,6 +242,7 @@ class LivePlayerNotifier extends Notifier<LivePlayerState> {
 
   void _resetHideControlsTimer() {
     _hideControlsTimer?.cancel();
+    if (!state.showControls) return;
     _hideControlsTimer = Timer(const Duration(seconds: 5), () {
       if (!_isDisposed && ref.mounted && state.showControls) {
         state = state.copyWith(showControls: false);

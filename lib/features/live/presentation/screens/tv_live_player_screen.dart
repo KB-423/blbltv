@@ -6,6 +6,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/back_navigation_debounce.dart';
+import '../../../../router/route_paths.dart';
 import '../../../../models/video/play_url_model.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../../../player/presentation/providers/player_provider.dart';
@@ -102,16 +103,26 @@ class _TvLivePlayerScreenState extends ConsumerState<TvLivePlayerScreen>
       _isExiting = true;
       // 退出确认：第 0 毫秒立即掐断音频，零延迟彻底静音
       notifier.pauseAndStopAudio();
-      if (context.mounted) {
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+      _safeNavigateBack(context, RoutePaths.live);
+    }
+  }
+
+  void _safeNavigateBack(BuildContext context, String fallbackPath) {
+    if (!context.mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    try {
+      final router = GoRouter.maybeOf(context);
+      if (router != null) {
+        if (router.canPop()) {
+          router.pop();
         } else {
-          try {
-            context.pop();
-          } catch (_) {}
+          router.go(fallbackPath);
         }
       }
-    }
+    } catch (_) {}
   }
 
   KeyEventResult _handleVideoKeyEvent(
@@ -284,15 +295,7 @@ class _TvLivePlayerScreenState extends ConsumerState<TvLivePlayerScreen>
                 onOpenQuality: () {},
                 onBack: () {
                   notifier.pauseAndStopAudio();
-                  if (context.mounted) {
-                    if (Navigator.of(context).canPop()) {
-                      Navigator.of(context).pop();
-                    } else {
-                      try {
-                        context.pop();
-                      } catch (_) {}
-                    }
-                  }
+                  _safeNavigateBack(context, RoutePaths.live);
                 },
               ),
           ],

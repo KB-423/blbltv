@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +7,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/utils/tv_player_engine_helper.dart';
 import '../../../player/data/repositories/player_repository.dart';
 import '../../data/models/bangumi_episode_model.dart';
 import '../../data/repositories/bangumi_repository.dart';
@@ -28,6 +28,7 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
   StreamSubscription<bool>? _playingSub;
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<bool>? _completedSub;
+  StreamSubscription<String>? _errorSub;
 
   late final BangumiRepository _bangumiRepository;
   late final PlayerRepository _playerRepository;
@@ -60,6 +61,7 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
     _playingSub?.cancel();
     _bufferingSub?.cancel();
     _completedSub?.cancel();
+    _errorSub?.cancel();
   }
 
   /// 外部主动显式调用停止并销毁播放器
@@ -79,24 +81,9 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
     } catch (_) {}
   }
 
-  void _safeDisposePlayer(Player? p) {
-    if (p == null) return;
-    try {
-      p.setVolume(0).catchError((_) {});
-    } catch (_) {}
-    try {
-      p.pause().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.stop().catchError((_) {});
-    } catch (_) {}
-    try {
-      p.dispose().catchError((_) {});
-    } catch (_) {}
-  }
-
   void _stopAndDispose() {
     if (_isDisposed) return;
+    reportHistoryHeartbeat();
     _isDisposed = true;
 
     _hideControlsTimer?.cancel();
@@ -107,7 +94,28 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
     _player = null;
     _videoController = null;
 
-    _safeDisposePlayer(p);
+    TvPlayerEngineHelper.safeDisposePlayer(p);
+  }
+
+  /// 向 B 站官方上报播放心跳进度，确保番剧观看记录真实同步至云端历史
+  void reportHistoryHeartbeat() {
+    if (_isDisposed) return;
+    try {
+      if (state.episodes.isNotEmpty &&
+          state.currentEpIndex < state.episodes.length) {
+        final curEp = state.episodes[state.currentEpIndex];
+        if (curEp.bvid.isNotEmpty && curEp.cid > 0) {
+          final playedSec =
+              _player?.state.position.inSeconds ?? state.position.inSeconds;
+          _playerRepository.reportHeartbeat(
+            bvid: curEp.bvid,
+            cid: curEp.cid,
+            playedTime: playedSec,
+            duration: state.duration.inSeconds,
+          );
+        }
+      }
+    } catch (_) {}
   }
 
   /// 初始化番剧并起播
@@ -123,8 +131,7 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
         throw Exception('该番剧暂无可播放剧集');
       }
 
-      final validIndex =
-          targetEpIndex.clamp(0, episodes.length - 1).toInt();
+      final validIndex = targetEpIndex.clamp(0, episodes.length - 1).toInt();
       state = state.copyWith(
         seasonTitle: seasonTitle,
         episodes: episodes,
@@ -143,7 +150,10 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
   }
 
   /// 播放指定剧集
-  Future<void> _playEpisode(BangumiEpisodeModel episode) async {
+  Future<void> _playEpisode(
+    BangumiEpisodeModel episode, {
+    Duration startPosition = Duration.zero,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -151,6 +161,8 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
       final playInfo = await _playerRepository.fetchPlayUrl(
         bvid: episode.bvid,
         cid: episode.cid,
+        epId: episode.id,
+        isBangumi: true,
         qn: preferredQn,
       );
       if (_isDisposed) return;
@@ -166,6 +178,7 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
         playInfo.playUrl,
         audioUrl: playInfo.audioUrl,
         targetQn: playInfo.currentQn,
+        startPosition: startPosition,
       );
     } catch (e) {
       if (_isDisposed) return;
@@ -182,45 +195,72 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
     String videoUrl, {
     String audioUrl = '',
     int targetQn = 80,
+    Duration startPosition = Duration.zero,
   }) async {
+    if (_isDisposed) return;
+
     final oldPlayer = _player;
     _player = null;
     _videoController = null;
-    _safeDisposePlayer(oldPlayer);
+    _cancelSubscriptions();
+    _heartbeatTimer?.cancel();
+
+    if (oldPlayer != null) {
+      TvPlayerEngineHelper.safeDisposePlayer(oldPlayer);
+    }
+
+    if (_isDisposed) return;
 
     try {
-      final player = Player(
-        configuration: const PlayerConfiguration(
-          bufferSize: 64 * 1024 * 1024,
-        ),
+      // 1. 创建优化网络缓存的底层 Player 实例
+      final player = TvPlayerEngineHelper.createPlayer(
+        bufferSize: 128 * 1024 * 1024,
       );
       _player = player;
 
-      final controller = VideoController(
-        player,
-        configuration: const VideoControllerConfiguration(
-          enableHardwareAcceleration: true,
-          androidAttachSurfaceAfterVideoParameters: true,
-        ),
-      );
-      _videoController = controller;
-
-      final dynamic platform = player.platform;
-      if (Platform.isAndroid) {
-        await platform?.setProperty('volume-max', '100');
-        await platform?.setProperty('ao', 'opensles');
-        await platform?.setProperty('hwdec', 'mediacodec_embed');
-        await platform?.setProperty('opengl-es', 'yes');
-        await platform?.setProperty('video-sync', 'audio');
-        await platform?.setProperty('hr-seek', 'yes');
-        await platform?.setProperty('hr-seek-framedrop', 'yes');
-        await platform?.setProperty('autosync', '30');
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        return;
       }
 
-      _cancelSubscriptions();
+      final dynamic platform = player.platform;
+
+      // 2. 针对 Android TV 大屏 MediaCodec 硬解直通与极速渲染着色器配置
+      await TvPlayerEngineHelper.configurePlatformProperties(
+        platform,
+        audioUrl: audioUrl,
+        isLive: false,
+      );
+
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        return;
+      }
+
+      // 3. 创建配置了 mediacodec + mediacodec_embed 原生 Surface 的控制器
+      final controller = TvPlayerEngineHelper.createVideoController(player);
+      _videoController = controller;
+
+      // 4. 等待 Android Native Surface 完全绑定，杜绝在 Surface 缺失下提早解码导致降级为软解 Buffer 拷贝模式
+      await TvPlayerEngineHelper.waitForSurfaceReady(controller);
+
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        _videoController = null;
+        return;
+      }
+
+      bool isWaitingInitialSeek = startPosition > Duration.zero;
 
       _posSub = player.stream.position.listen((pos) {
         if (!_isDisposed && ref.mounted) {
+          if (isWaitingInitialSeek) {
+            if (pos == Duration.zero) return;
+            isWaitingInitialSeek = false;
+          }
           state = state.copyWith(position: pos);
         }
       });
@@ -249,31 +289,46 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
         }
       });
 
-      final headers = {
-        'Referer': ApiConstants.defaultReferer,
-        'User-Agent': ApiConstants.defaultUserAgent,
-      };
+      _errorSub = player.stream.error.listen((err) {
+        debugPrint('[BangumiPlayer] MediaKit 错误: $err');
+      });
 
+      // 5. 打开主视频流并指定起始续播位置
       final media = Media(
         videoUrl,
-        httpHeaders: headers,
-        extras: audioUrl.isNotEmpty
-            ? {
-                'audio-resource': audioUrl,
-                'audio-headers': headers,
-              }
-            : null,
+        httpHeaders: const {
+          'Referer': ApiConstants.defaultReferer,
+          'User-Agent': ApiConstants.defaultUserAgent,
+        },
+        start: startPosition > Duration.zero ? startPosition : null,
       );
 
-      await player.open(media, play: true);
+      await player.open(media, play: false);
+
+      if (_isDisposed) {
+        TvPlayerEngineHelper.safeDisposePlayer(player);
+        _player = null;
+        _videoController = null;
+        return;
+      }
+
+      // 6. 音视频准备就绪后，恢复音量并正式开播
+      await player.setVolume(100.0);
+      await player.play();
 
       if (!_isDisposed && ref.mounted) {
         state = state.copyWith(
           isLoading: false,
           isPlaying: true,
           currentQn: targetQn,
+          error: null,
         );
         _resetHideControlsTimer();
+
+        // 启动每 15 秒定期向云端上报观看历史心跳
+        _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+          reportHistoryHeartbeat();
+        });
       }
     } catch (e) {
       if (_isDisposed) return;
@@ -311,7 +366,8 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
       return;
     }
 
-    final curEp = state.episodes.isNotEmpty
+    final curEp = state.episodes.isNotEmpty &&
+            state.currentEpIndex < state.episodes.length
         ? state.episodes[state.currentEpIndex]
         : null;
     if (curEp == null) return;
@@ -323,6 +379,8 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
       final playInfo = await _playerRepository.fetchPlayUrl(
         bvid: curEp.bvid,
         cid: curEp.cid,
+        epId: curEp.id,
+        isBangumi: true,
         qn: targetQn,
       );
       if (_isDisposed) return;
@@ -338,11 +396,8 @@ class BangumiPlayerNotifier extends Notifier<BangumiPlayerState> {
         playInfo.playUrl,
         audioUrl: playInfo.audioUrl,
         targetQn: playInfo.currentQn,
+        startPosition: currentPos,
       );
-
-      if (currentPos > Duration.zero) {
-        await _player?.seek(currentPos);
-      }
     } catch (e) {
       if (_isDisposed) return;
       debugPrint('[BangumiPlayer] 切换画质异常: $e');
