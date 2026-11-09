@@ -98,6 +98,14 @@ void main() {
       expect(player, isNotNull);
       TvPlayerEngineHelper.safeDisposePlayer(player);
     });
+
+    test('createVideoController initializes controller without throwing', () {
+      final player = TvPlayerEngineHelper.createPlayer();
+      final controller = TvPlayerEngineHelper.createVideoController(player);
+      expect(controller, isNotNull);
+      expect(controller.player, equals(player));
+      TvPlayerEngineHelper.safeDisposePlayer(player);
+    });
   });
 
   group('Bangumi PGC PlayUrl & Codec Parsing Tests', () {

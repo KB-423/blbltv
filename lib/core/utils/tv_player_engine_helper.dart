@@ -23,6 +23,8 @@ class TvPlayerEngineHelper {
     return Player(
       configuration: PlayerConfiguration(
         bufferSize: bufferSize,
+        // 在 Linux/Windows 等桌面端避免 mpv 启动独立窗口，统一通过 Flutter 纹理嵌入
+        vo: Platform.isAndroid ? null : 'libmpv',
       ),
     );
   }
@@ -34,7 +36,9 @@ class TvPlayerEngineHelper {
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: true,
         hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
-        vo: Platform.isAndroid ? 'mediacodec_embed' : 'gpu',
+        // Android TV 大屏端使用 mediacodec_embed 原生 Surface 零拷贝硬解渲染；
+        // Linux/Windows 等桌面开发与测试环境使用 libmpv，防止 mpv (vo=gpu) 弹出独立宿主窗口
+        vo: Platform.isAndroid ? 'mediacodec_embed' : 'libmpv',
       ),
     );
   }
