@@ -96,8 +96,13 @@ class _TvTopBarState extends ConsumerState<TvTopBar> {
       child: AnimatedOpacity(
         opacity: opacity,
         duration: const Duration(milliseconds: 240),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(
+            horizontal: 48,
+            vertical: isCompact ? 10 : 16,
+          ),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
@@ -141,7 +146,9 @@ class _TvTopBarState extends ConsumerState<TvTopBar> {
                     // 3. 头像 / 账号
                     DpadFocusable(
                       onSelect: () => context.go(RoutePaths.user),
-                      child: Container(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOutCubic,
                         padding: EdgeInsets.symmetric(
                           horizontal: isCompact ? 6 : 10,
                           vertical: 4,
@@ -175,33 +182,51 @@ class _TvTopBarState extends ConsumerState<TvTopBar> {
                                       ),
                                     ),
                             ),
-                            if (!isCompact) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                authState.isLoggedIn && user != null
-                                    ? user.uname
-                                    : '未登录',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 200),
+                              curve: Curves.easeOutCubic,
+                              child: !isCompact
+                                  ? Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          authState.isLoggedIn && user != null
+                                              ? user.uname
+                                              : '未登录',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
 
                     // 4. 会员状态标签胶囊
-                    if (!isCompact)
-                      _buildVipBadge(user, authState.isLoggedIn),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      child: !isCompact
+                          ? Padding(
+                              padding: const EdgeInsets.only(left: 14),
+                              child: _buildVipBadge(user, authState.isLoggedIn),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
 
                     const Spacer(),
 
                     // 5. 最右侧当前时间
-                    Container(
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 4,
@@ -236,61 +261,76 @@ class _TvTopBarState extends ConsumerState<TvTopBar> {
               ),
 
               // ================= 第二行：分类 Tab 栏 =================
-              AnimatedCrossFade(
-                crossFadeState: isCompact
-                    ? CrossFadeState.showSecond
-                    : CrossFadeState.showFirst,
-                duration: const Duration(milliseconds: 220),
-                firstChild: Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: DpadRegion(
-                    horizontalEdge: DpadEdgeBehavior.stop,
-                    verticalEdge: DpadEdgeBehavior.leave,
-                    child: Row(
-                      children: [
-                        _CategoryTabItem(
-                          title: '直播',
-                          path: RoutePaths.live,
-                          isSelected: widget.currentPath == RoutePaths.live,
-                          onSelect: () => context.go(RoutePaths.live),
+              // 彻底解决隐藏占用高度问题：隐藏时 AnimatedSize 将高度坍缩至 0，不再占用任何垂直空间
+              AnimatedSize(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: isCompact
+                    ? const SizedBox(width: double.infinity, height: 0)
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: AnimatedOpacity(
+                          opacity: isCompact ? 0.0 : 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutCubic,
+                          child: DpadRegion(
+                            horizontalEdge: DpadEdgeBehavior.stop,
+                            verticalEdge: DpadEdgeBehavior.leave,
+                            child: Row(
+                              children: [
+                                _CategoryTabItem(
+                                  title: '直播',
+                                  path: RoutePaths.live,
+                                  isSelected:
+                                      widget.currentPath == RoutePaths.live,
+                                  onSelect: () => context.go(RoutePaths.live),
+                                ),
+                                const SizedBox(width: 16),
+                                _CategoryTabItem(
+                                  title: '推荐',
+                                  path: RoutePaths.home,
+                                  focusNode: _recommendFocusNode,
+                                  autofocus:
+                                      widget.currentPath == RoutePaths.home ||
+                                          widget.currentPath ==
+                                              RoutePaths.initial,
+                                  isSelected:
+                                      widget.currentPath == RoutePaths.home ||
+                                          widget.currentPath ==
+                                              RoutePaths.initial,
+                                  onSelect: () => context.go(RoutePaths.home),
+                                ),
+                                const SizedBox(width: 16),
+                                _CategoryTabItem(
+                                  title: '热门',
+                                  path: RoutePaths.popular,
+                                  isSelected:
+                                      widget.currentPath == RoutePaths.popular,
+                                  onSelect: () =>
+                                      context.go(RoutePaths.popular),
+                                ),
+                                const SizedBox(width: 16),
+                                _CategoryTabItem(
+                                  title: '分区',
+                                  path: '/partition',
+                                  isSelected: false,
+                                  onSelect: () => context.go(RoutePaths.search),
+                                ),
+                                const SizedBox(width: 16),
+                                _CategoryTabItem(
+                                  title: '番剧',
+                                  path: RoutePaths.bangumi,
+                                  isSelected:
+                                      widget.currentPath == RoutePaths.bangumi,
+                                  onSelect: () =>
+                                      context.go(RoutePaths.bangumi),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        const SizedBox(width: 16),
-                        _CategoryTabItem(
-                          title: '推荐',
-                          path: RoutePaths.home,
-                          focusNode: _recommendFocusNode,
-                          autofocus: widget.currentPath == RoutePaths.home ||
-                              widget.currentPath == RoutePaths.initial,
-                          isSelected: widget.currentPath == RoutePaths.home ||
-                              widget.currentPath == RoutePaths.initial,
-                          onSelect: () => context.go(RoutePaths.home),
-                        ),
-                        const SizedBox(width: 16),
-                        _CategoryTabItem(
-                          title: '热门',
-                          path: RoutePaths.popular,
-                          isSelected: widget.currentPath == RoutePaths.popular,
-                          onSelect: () => context.go(RoutePaths.popular),
-                        ),
-                        const SizedBox(width: 16),
-                        _CategoryTabItem(
-                          title: '分区',
-                          path: '/partition',
-                          isSelected: false,
-                          onSelect: () => context.go(RoutePaths.search),
-                        ),
-                        const SizedBox(width: 16),
-                        _CategoryTabItem(
-                          title: '番剧',
-                          path: RoutePaths.bangumi,
-                          isSelected: widget.currentPath == RoutePaths.bangumi,
-                          onSelect: () => context.go(RoutePaths.bangumi),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                secondChild: const SizedBox.shrink(),
+                      ),
               ),
             ],
           ),
@@ -327,7 +367,9 @@ class _TvTopBarState extends ConsumerState<TvTopBar> {
       }
     }
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: bg,
@@ -364,7 +406,9 @@ class _TopBarIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return DpadFocusable(
       onSelect: onSelect,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected
@@ -380,17 +424,26 @@ class _TopBarIconButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: Colors.white),
-            if (label != null) ...[
-              const SizedBox(width: 6),
-              Text(
-                label!,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              child: label != null
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 6),
+                        Text(
+                          label!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),

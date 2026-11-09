@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../../core/theme/tv_theme.dart';
@@ -246,13 +245,10 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
             if (playerState.showControls)
               TvRecommendControlOverlay(
                 onClose: notifier.closeControls,
-                onSelectVideo: (bvid) async {
-                  // 退出背景播放器并推入播放详情页
-                  notifier.pauseAndStopAudio();
-                  await context.push('/player/$bvid');
-                  if (mounted) {
-                    notifier.togglePlay();
-                  }
+                onSelectVideo: (video) {
+                  // 单播放器换流切播并立即进入纯享模式，绝不跳新路由
+                  notifier.playVideo(video);
+                  notifier.enterPurePlayback();
                 },
               ),
           ],
@@ -274,7 +270,8 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       );
     }
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       color: Colors.black,
       child: playerState.isLoading
           ? const Center(
@@ -295,10 +292,11 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     RecommendPlayerState playerState,
     HomeFeedState feedState,
   ) {
-    final current = feedState.videos.isNotEmpty &&
-            playerState.currentIndex < feedState.videos.length
-        ? feedState.videos[playerState.currentIndex]
-        : null;
+    final current = playerState.currentVideo ??
+        (feedState.videos.isNotEmpty &&
+                playerState.currentIndex < feedState.videos.length
+            ? feedState.videos[playerState.currentIndex]
+            : null);
 
     if (current == null) return const SizedBox.shrink();
 
@@ -308,7 +306,8 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
       child: AnimatedOpacity(
         opacity: _showChannelHUD ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 250),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.85),

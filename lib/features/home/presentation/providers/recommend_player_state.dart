@@ -16,6 +16,7 @@ enum TvPlayMode {
 abstract class RecommendPlayerState with _$RecommendPlayerState {
   const factory RecommendPlayerState({
     @Default(0) int currentIndex,
+    VideoItemModel? currentVideo, // 当前正在播放的视频对象
     @Default('') String currentPlayUrl,
     @Default('') String currentAudioUrl,
     @Default(80) int currentQn,

@@ -1,8 +1,42 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:bili_tv/core/utils/back_navigation_debounce.dart';
+import 'package:bili_tv/features/home/presentation/providers/home_provider.dart';
+import 'package:bili_tv/features/home/presentation/providers/home_state.dart';
+import 'package:bili_tv/features/home/presentation/providers/recommend_player_provider.dart';
 import 'package:bili_tv/features/home/presentation/providers/recommend_player_state.dart';
+import 'package:bili_tv/features/home/presentation/widgets/tv_recommend_control_overlay.dart';
 import 'package:bili_tv/features/main/presentation/providers/nav_rail_focus_provider.dart';
 import 'package:bili_tv/models/video/video_collection_model.dart';
+import 'package:bili_tv/models/video/video_item_model.dart';
+
+class _TestRecommendPlayerNotifier extends RecommendPlayerNotifier {
+  final RecommendPlayerState _initial;
+
+  _TestRecommendPlayerNotifier([this._initial = const RecommendPlayerState()]);
+
+  @override
+  RecommendPlayerState build() => _initial;
+
+  @override
+  void togglePlay() {
+    state = state.copyWith(isPlaying: !state.isPlaying);
+  }
+
+  @override
+  Future<void> toggleLike() async {
+    state = state.copyWith(hasLike: !state.hasLike);
+  }
+}
+
+class _TestHomeFeedNotifier extends HomeFeedNotifier {
+  @override
+  HomeFeedState build() => const HomeFeedState(videos: [
+        VideoItemModel(bvid: 'BVTest1', title: '推荐测试视频 1'),
+      ]);
+}
 
 void main() {
   group('TopBarDisplayModeNotifier Tests', () {
@@ -98,6 +132,156 @@ void main() {
       expect(collection.id, 0);
       expect(collection.title, '');
       expect(collection.items, isEmpty);
+    });
+  });
+
+  group('Single Persistent Player & CurrentVideo State Tests', () {
+    test('currentVideo holds active video metadata independently of feed index', () {
+      const original = RecommendPlayerState(currentIndex: 0);
+      expect(original.currentVideo, isNull);
+
+      const target = VideoItemModel(
+        bvid: 'BV1TargetTest',
+        cid: 123456,
+        title: '合集选集目标视频',
+      );
+
+      final updated = original.copyWith(
+        currentVideo: target,
+        isPurePlayback: true,
+        showControls: false,
+      );
+
+      expect(updated.currentVideo, isNotNull);
+      expect(updated.currentVideo!.bvid, 'BV1TargetTest');
+      expect(updated.currentVideo!.title, '合集选集目标视频');
+      expect(updated.isPurePlayback, true);
+      expect(updated.showControls, false);
+    });
+  });
+
+  group('TvRecommendControlOverlay Widget Tests', () {
+    testWidgets('renders controls block with title, like button, progress bar, and peek bar',
+        (tester) async {
+      bool closed = false;
+      VideoItemModel? selectedVideo;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            recommendPlayerProvider.overrideWith(
+              () => _TestRecommendPlayerNotifier(
+                const RecommendPlayerState(
+                  isLoading: false,
+                  isPlaying: true,
+                  duration: Duration(minutes: 5),
+                  position: Duration(seconds: 45),
+                  relatedVideos: [
+                    VideoItemModel(bvid: 'BVRelated1', title: '相关视频 1'),
+                  ],
+                ),
+              ),
+            ),
+            homeFeedProvider.overrideWith(() => _TestHomeFeedNotifier()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: TvRecommendControlOverlay(
+                onClose: () => closed = true,
+                onSelectVideo: (v) => selectedVideo = v,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 验证标题与基本控制元素存在
+      expect(find.text('推荐测试视频 1'), findsOneWidget);
+      expect(find.text('点赞'), findsOneWidget);
+      expect(find.text('点踩'), findsOneWidget);
+      expect(find.text('投币'), findsOneWidget);
+      expect(find.text('收藏'), findsOneWidget);
+      expect(find.text('弹幕: 开'), findsOneWidget);
+
+      // 验证露头条显示
+      expect(find.byType(TvRecommendControlOverlay), findsOneWidget);
+      expect(find.textContaining('展开'), findsOneWidget);
+
+      // 验证返回键触发 onClose
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(selectedVideo, isNull);
+      expect(closed, true);
+    });
+
+    testWidgets('expanding collections drawer covers controls block and back collapses it',
+        (tester) async {
+      bool closed = false;
+      VideoItemModel? selectedVideo;
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            recommendPlayerProvider.overrideWith(
+              () => _TestRecommendPlayerNotifier(
+                const RecommendPlayerState(
+                  isLoading: false,
+                  isPlaying: true,
+                  duration: Duration(minutes: 5),
+                  position: Duration(seconds: 45),
+                  relatedVideos: [
+                    VideoItemModel(bvid: 'BVRelated1', title: '相关视频 1'),
+                  ],
+                ),
+              ),
+            ),
+            homeFeedProvider.overrideWith(() => _TestHomeFeedNotifier()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: TvRecommendControlOverlay(
+                onClose: () => closed = true,
+                onSelectVideo: (v) => selectedVideo = v,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 展开抽屉
+      await tester.tap(find.textContaining('展开'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 验证收起按钮和合集卡片出现
+      expect(find.text('收起 (返回键)'), findsOneWidget);
+      expect(find.text('相关视频 1'), findsOneWidget);
+
+      // 点击视频卡片，触发 onSelectVideo
+      await tester.tap(find.text('相关视频 1'));
+      await tester.pump();
+      expect(selectedVideo, isNotNull);
+      expect(selectedVideo!.bvid, 'BVRelated1');
+
+      // 按返回键收起抽屉
+      BackNavigationDebounce.reset();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // 抽屉收起后，再次按返回键关闭浮层
+      BackNavigationDebounce.reset();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(closed, true);
     });
   });
 }

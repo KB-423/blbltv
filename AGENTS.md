@@ -115,6 +115,18 @@ DpadRegion(
   * **长按快进/快退**：按下立即投递 `KeyDown`，超过 220ms 周期投递 `KeyRepeat`（驱动播放器长按快进/快退 HUD 累计计时），松手投递 `KeyUp`（触发最终 seek 跳转）；
   * **触控零延迟**：方向按键优先采用原生 `Listener(onPointerDown, onPointerUp)`，杜绝 `GestureDetector` 内部 `GestureArena` 竞技裁决产生的 500ms 延迟。
 
+### 2.8 全量动效组件强制规范 (Animated Widgets Mandate)
+* **核心准则**：在 TV 场景中，生硬无过渡的状态突变（如尺寸跳变、显隐骤变、颜色突变）会严重破坏大屏 10-foot UI 的高级感与沉浸感。**项目要求所有具有 `Animated*` 版本的 Flutter 组件，必须全量且统一使用其对应 Animated 版本**：
+  * `Container` 涉及边框、背景色、圆角、内外边距或宽高变化时，**必须使用 `AnimatedContainer`**；
+  * `Opacity` 显隐过渡一律使用 **`AnimatedOpacity`**；
+  * `Padding` 边距动态伸缩一律使用 **`AnimatedPadding`**；
+  * `Positioned` 绝对位置流转一律使用 **`AnimatedPositioned`**；
+  * 区域高度/宽度折叠展开（如顶部第二行隐藏不再占用高度、合集抽屉伸缩）一律使用 **`AnimatedSize`** 或 **`AnimatedCrossFade`**；
+  * 画面与抽屉滑移一律使用 **`AnimatedSlide`**；
+  * 字体样式或颜色变更一律使用 **`AnimatedDefaultTextStyle`**；
+  * 组件内容切换一律使用 **`AnimatedSwitcher`**。
+* **参数配置**：所有动效默认时长建议控制在 200ms ~ 320ms，曲线统一优先采用 `Curves.easeOutCubic` 或 `Curves.easeInOutCubic`，保证丝滑跟随遥控器操作且无拖沓。
+
 ---
 
 ## 3. 代码生成与 `build_runner` 工作流 (Build Runner Directives)
@@ -270,6 +282,7 @@ Agent 在每次提交代码变更或完成任务前，必须执行以下自检�
 - [ ] **多级返回不卡死**：全屏播放器是否通过 `canPop: false` 与 `_handleBack` 严格遵循“画质面板 $\to$ 控制栏 $\to$ 退出界面”的分级退出逻辑？
 - [ ] **软键盘 TV 适配**：文本输入框是否采用 `DpadFocusable(excludeChildFocus: false)`，并支持遥控器 `Select` / `Enter` 键唤起输入法？
 - [ ] **严格零 Mock**：生产代码（`lib/`）中是否彻底杜绝了任何 Mock/Fake/兜底假数据？错误是否真实传播至 UI？临时测试数据是否已全部清理？
+- [ ] **全量 Animated 组件规范**：所有涉及过渡、状态变化、显隐或尺寸伸缩的组件，是否已全部采用对应的 Animated 变体（如 AnimatedContainer, AnimatedOpacity, AnimatedSize, AnimatedSlide, AnimatedPositioned 等）？
 - [ ] **代码生成校验**：是否运行了 `dart run build_runner build` 并确保所有生成文件（`generated/*.freezed.dart`, `generated/*.g.dart`）正常同步。
 - [ ] **静态分析无报错**：运行 `flutter analyze` 或确认无严重警告与编译错误。
 - [ ] **音画同步与硬件解码**：播放器配置是否开启了 `video-sync=audio`？画质选择是否优先调度了 HEVC 硬解流？

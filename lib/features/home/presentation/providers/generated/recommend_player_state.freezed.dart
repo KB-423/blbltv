@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$RecommendPlayerState {
 
- int get currentIndex; String get currentPlayUrl; String get currentAudioUrl; int get currentQn; List<VideoQualityItem> get qualities; bool get isLoading; bool get isBuffering; bool get isPlaying; Duration get position; Duration get duration; double get speed; bool get isPurePlayback; bool get showControls; String get onlineCount; bool get hasLike; bool get hasDislike; bool get hasCoin; bool get hasFav; TvPlayMode get playMode; bool get danmakuEnabled; double get danmakuSize; double get danmakuSpeed; double get danmakuArea; VideoCollectionModel? get ugcSeason; List<VideoItemModel> get upWorks; List<VideoItemModel> get relatedVideos; String? get error;
+ int get currentIndex; VideoItemModel? get currentVideo; String get currentPlayUrl; String get currentAudioUrl; int get currentQn; List<VideoQualityItem> get qualities; bool get isLoading; bool get isBuffering; bool get isPlaying; Duration get position; Duration get duration; double get speed; bool get isPurePlayback; bool get showControls; String get onlineCount; bool get hasLike; bool get hasDislike; bool get hasCoin; bool get hasFav; TvPlayMode get playMode; bool get danmakuEnabled; double get danmakuSize; double get danmakuSpeed; double get danmakuArea; VideoCollectionModel? get ugcSeason; List<VideoItemModel> get upWorks; List<VideoItemModel> get relatedVideos; String? get error;
 /// Create a copy of RecommendPlayerState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $RecommendPlayerStateCopyWith<RecommendPlayerState> get copyWith => _$RecommendP
 @override
 bool operator ==(Object other) {
   final _this = this as RecommendPlayerState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is RecommendPlayerState&&(identical(other.currentIndex, _this.currentIndex) || other.currentIndex == _this.currentIndex)&&(identical(other.currentPlayUrl, _this.currentPlayUrl) || other.currentPlayUrl == _this.currentPlayUrl)&&(identical(other.currentAudioUrl, _this.currentAudioUrl) || other.currentAudioUrl == _this.currentAudioUrl)&&(identical(other.currentQn, _this.currentQn) || other.currentQn == _this.currentQn)&&const DeepCollectionEquality().equals(other.qualities, _this.qualities)&&(identical(other.isLoading, _this.isLoading) || other.isLoading == _this.isLoading)&&(identical(other.isBuffering, _this.isBuffering) || other.isBuffering == _this.isBuffering)&&(identical(other.isPlaying, _this.isPlaying) || other.isPlaying == _this.isPlaying)&&(identical(other.position, _this.position) || other.position == _this.position)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.speed, _this.speed) || other.speed == _this.speed)&&(identical(other.isPurePlayback, _this.isPurePlayback) || other.isPurePlayback == _this.isPurePlayback)&&(identical(other.showControls, _this.showControls) || other.showControls == _this.showControls)&&(identical(other.onlineCount, _this.onlineCount) || other.onlineCount == _this.onlineCount)&&(identical(other.hasLike, _this.hasLike) || other.hasLike == _this.hasLike)&&(identical(other.hasDislike, _this.hasDislike) || other.hasDislike == _this.hasDislike)&&(identical(other.hasCoin, _this.hasCoin) || other.hasCoin == _this.hasCoin)&&(identical(other.hasFav, _this.hasFav) || other.hasFav == _this.hasFav)&&(identical(other.playMode, _this.playMode) || other.playMode == _this.playMode)&&(identical(other.danmakuEnabled, _this.danmakuEnabled) || other.danmakuEnabled == _this.danmakuEnabled)&&(identical(other.danmakuSize, _this.danmakuSize) || other.danmakuSize == _this.danmakuSize)&&(identical(other.danmakuSpeed, _this.danmakuSpeed) || other.danmakuSpeed == _this.danmakuSpeed)&&(identical(other.danmakuArea, _this.danmakuArea) || other.danmakuArea == _this.danmakuArea)&&(identical(other.ugcSeason, _this.ugcSeason) || other.ugcSeason == _this.ugcSeason)&&const DeepCollectionEquality().equals(other.upWorks, _this.upWorks)&&const DeepCollectionEquality().equals(other.relatedVideos, _this.relatedVideos)&&(identical(other.error, _this.error) || other.error == _this.error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RecommendPlayerState&&(identical(other.currentIndex, _this.currentIndex) || other.currentIndex == _this.currentIndex)&&(identical(other.currentVideo, _this.currentVideo) || other.currentVideo == _this.currentVideo)&&(identical(other.currentPlayUrl, _this.currentPlayUrl) || other.currentPlayUrl == _this.currentPlayUrl)&&(identical(other.currentAudioUrl, _this.currentAudioUrl) || other.currentAudioUrl == _this.currentAudioUrl)&&(identical(other.currentQn, _this.currentQn) || other.currentQn == _this.currentQn)&&const DeepCollectionEquality().equals(other.qualities, _this.qualities)&&(identical(other.isLoading, _this.isLoading) || other.isLoading == _this.isLoading)&&(identical(other.isBuffering, _this.isBuffering) || other.isBuffering == _this.isBuffering)&&(identical(other.isPlaying, _this.isPlaying) || other.isPlaying == _this.isPlaying)&&(identical(other.position, _this.position) || other.position == _this.position)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&(identical(other.speed, _this.speed) || other.speed == _this.speed)&&(identical(other.isPurePlayback, _this.isPurePlayback) || other.isPurePlayback == _this.isPurePlayback)&&(identical(other.showControls, _this.showControls) || other.showControls == _this.showControls)&&(identical(other.onlineCount, _this.onlineCount) || other.onlineCount == _this.onlineCount)&&(identical(other.hasLike, _this.hasLike) || other.hasLike == _this.hasLike)&&(identical(other.hasDislike, _this.hasDislike) || other.hasDislike == _this.hasDislike)&&(identical(other.hasCoin, _this.hasCoin) || other.hasCoin == _this.hasCoin)&&(identical(other.hasFav, _this.hasFav) || other.hasFav == _this.hasFav)&&(identical(other.playMode, _this.playMode) || other.playMode == _this.playMode)&&(identical(other.danmakuEnabled, _this.danmakuEnabled) || other.danmakuEnabled == _this.danmakuEnabled)&&(identical(other.danmakuSize, _this.danmakuSize) || other.danmakuSize == _this.danmakuSize)&&(identical(other.danmakuSpeed, _this.danmakuSpeed) || other.danmakuSpeed == _this.danmakuSpeed)&&(identical(other.danmakuArea, _this.danmakuArea) || other.danmakuArea == _this.danmakuArea)&&(identical(other.ugcSeason, _this.ugcSeason) || other.ugcSeason == _this.ugcSeason)&&const DeepCollectionEquality().equals(other.upWorks, _this.upWorks)&&const DeepCollectionEquality().equals(other.relatedVideos, _this.relatedVideos)&&(identical(other.error, _this.error) || other.error == _this.error));
 }
 
 
 @override
 int get hashCode {
   final _this = this as RecommendPlayerState;
-  return Object.hashAll([runtimeType,_this.currentIndex,_this.currentPlayUrl,_this.currentAudioUrl,_this.currentQn,const DeepCollectionEquality().hash(_this.qualities),_this.isLoading,_this.isBuffering,_this.isPlaying,_this.position,_this.duration,_this.speed,_this.isPurePlayback,_this.showControls,_this.onlineCount,_this.hasLike,_this.hasDislike,_this.hasCoin,_this.hasFav,_this.playMode,_this.danmakuEnabled,_this.danmakuSize,_this.danmakuSpeed,_this.danmakuArea,_this.ugcSeason,const DeepCollectionEquality().hash(_this.upWorks),const DeepCollectionEquality().hash(_this.relatedVideos),_this.error]);
+  return Object.hashAll([runtimeType,_this.currentIndex,_this.currentVideo,_this.currentPlayUrl,_this.currentAudioUrl,_this.currentQn,const DeepCollectionEquality().hash(_this.qualities),_this.isLoading,_this.isBuffering,_this.isPlaying,_this.position,_this.duration,_this.speed,_this.isPurePlayback,_this.showControls,_this.onlineCount,_this.hasLike,_this.hasDislike,_this.hasCoin,_this.hasFav,_this.playMode,_this.danmakuEnabled,_this.danmakuSize,_this.danmakuSpeed,_this.danmakuArea,_this.ugcSeason,const DeepCollectionEquality().hash(_this.upWorks),const DeepCollectionEquality().hash(_this.relatedVideos),_this.error]);
 }
 
 @override
 String toString() {
   final _this = this as RecommendPlayerState;
-  return 'RecommendPlayerState(currentIndex: ${_this.currentIndex}, currentPlayUrl: ${_this.currentPlayUrl}, currentAudioUrl: ${_this.currentAudioUrl}, currentQn: ${_this.currentQn}, qualities: ${_this.qualities}, isLoading: ${_this.isLoading}, isBuffering: ${_this.isBuffering}, isPlaying: ${_this.isPlaying}, position: ${_this.position}, duration: ${_this.duration}, speed: ${_this.speed}, isPurePlayback: ${_this.isPurePlayback}, showControls: ${_this.showControls}, onlineCount: ${_this.onlineCount}, hasLike: ${_this.hasLike}, hasDislike: ${_this.hasDislike}, hasCoin: ${_this.hasCoin}, hasFav: ${_this.hasFav}, playMode: ${_this.playMode}, danmakuEnabled: ${_this.danmakuEnabled}, danmakuSize: ${_this.danmakuSize}, danmakuSpeed: ${_this.danmakuSpeed}, danmakuArea: ${_this.danmakuArea}, ugcSeason: ${_this.ugcSeason}, upWorks: ${_this.upWorks}, relatedVideos: ${_this.relatedVideos}, error: ${_this.error})';
+  return 'RecommendPlayerState(currentIndex: ${_this.currentIndex}, currentVideo: ${_this.currentVideo}, currentPlayUrl: ${_this.currentPlayUrl}, currentAudioUrl: ${_this.currentAudioUrl}, currentQn: ${_this.currentQn}, qualities: ${_this.qualities}, isLoading: ${_this.isLoading}, isBuffering: ${_this.isBuffering}, isPlaying: ${_this.isPlaying}, position: ${_this.position}, duration: ${_this.duration}, speed: ${_this.speed}, isPurePlayback: ${_this.isPurePlayback}, showControls: ${_this.showControls}, onlineCount: ${_this.onlineCount}, hasLike: ${_this.hasLike}, hasDislike: ${_this.hasDislike}, hasCoin: ${_this.hasCoin}, hasFav: ${_this.hasFav}, playMode: ${_this.playMode}, danmakuEnabled: ${_this.danmakuEnabled}, danmakuSize: ${_this.danmakuSize}, danmakuSpeed: ${_this.danmakuSpeed}, danmakuArea: ${_this.danmakuArea}, ugcSeason: ${_this.ugcSeason}, upWorks: ${_this.upWorks}, relatedVideos: ${_this.relatedVideos}, error: ${_this.error})';
 }
 
 
@@ -51,11 +51,11 @@ abstract mixin class $RecommendPlayerStateCopyWith<$Res>  {
   factory $RecommendPlayerStateCopyWith(RecommendPlayerState value, $Res Function(RecommendPlayerState) _then) = _$RecommendPlayerStateCopyWithImpl;
 @useResult
 $Res call({
- int currentIndex, String currentPlayUrl, String currentAudioUrl, int currentQn, List<VideoQualityItem> qualities, bool isLoading, bool isBuffering, bool isPlaying, Duration position, Duration duration, double speed, bool isPurePlayback, bool showControls, String onlineCount, bool hasLike, bool hasDislike, bool hasCoin, bool hasFav, TvPlayMode playMode, bool danmakuEnabled, double danmakuSize, double danmakuSpeed, double danmakuArea, VideoCollectionModel? ugcSeason, List<VideoItemModel> upWorks, List<VideoItemModel> relatedVideos, String? error
+ int currentIndex, VideoItemModel? currentVideo, String currentPlayUrl, String currentAudioUrl, int currentQn, List<VideoQualityItem> qualities, bool isLoading, bool isBuffering, bool isPlaying, Duration position, Duration duration, double speed, bool isPurePlayback, bool showControls, String onlineCount, bool hasLike, bool hasDislike, bool hasCoin, bool hasFav, TvPlayMode playMode, bool danmakuEnabled, double danmakuSize, double danmakuSpeed, double danmakuArea, VideoCollectionModel? ugcSeason, List<VideoItemModel> upWorks, List<VideoItemModel> relatedVideos, String? error
 });
 
 
-$VideoCollectionModelCopyWith<$Res>? get ugcSeason;
+$VideoItemModelCopyWith<$Res>? get currentVideo;$VideoCollectionModelCopyWith<$Res>? get ugcSeason;
 
 }
 /// @nodoc
@@ -68,10 +68,11 @@ class _$RecommendPlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of RecommendPlayerState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? currentIndex = null,Object? currentPlayUrl = null,Object? currentAudioUrl = null,Object? currentQn = null,Object? qualities = null,Object? isLoading = null,Object? isBuffering = null,Object? isPlaying = null,Object? position = null,Object? duration = null,Object? speed = null,Object? isPurePlayback = null,Object? showControls = null,Object? onlineCount = null,Object? hasLike = null,Object? hasDislike = null,Object? hasCoin = null,Object? hasFav = null,Object? playMode = null,Object? danmakuEnabled = null,Object? danmakuSize = null,Object? danmakuSpeed = null,Object? danmakuArea = null,Object? ugcSeason = freezed,Object? upWorks = null,Object? relatedVideos = null,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? currentIndex = null,Object? currentVideo = freezed,Object? currentPlayUrl = null,Object? currentAudioUrl = null,Object? currentQn = null,Object? qualities = null,Object? isLoading = null,Object? isBuffering = null,Object? isPlaying = null,Object? position = null,Object? duration = null,Object? speed = null,Object? isPurePlayback = null,Object? showControls = null,Object? onlineCount = null,Object? hasLike = null,Object? hasDislike = null,Object? hasCoin = null,Object? hasFav = null,Object? playMode = null,Object? danmakuEnabled = null,Object? danmakuSize = null,Object? danmakuSpeed = null,Object? danmakuArea = null,Object? ugcSeason = freezed,Object? upWorks = null,Object? relatedVideos = null,Object? error = freezed,}) {
   return _then(RecommendPlayerState(
 currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
-as int,currentPlayUrl: null == currentPlayUrl ? _self.currentPlayUrl : currentPlayUrl // ignore: cast_nullable_to_non_nullable
+as int,currentVideo: freezed == currentVideo ? _self.currentVideo : currentVideo // ignore: cast_nullable_to_non_nullable
+as VideoItemModel?,currentPlayUrl: null == currentPlayUrl ? _self.currentPlayUrl : currentPlayUrl // ignore: cast_nullable_to_non_nullable
 as String,currentAudioUrl: null == currentAudioUrl ? _self.currentAudioUrl : currentAudioUrl // ignore: cast_nullable_to_non_nullable
 as String,currentQn: null == currentQn ? _self.currentQn : currentQn // ignore: cast_nullable_to_non_nullable
 as int,qualities: null == qualities ? _self.qualities : qualities // ignore: cast_nullable_to_non_nullable
@@ -101,6 +102,18 @@ as String?,
   ));
 }
 /// Create a copy of RecommendPlayerState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VideoItemModelCopyWith<$Res>? get currentVideo {
+    if (_self.currentVideo == null) {
+    return null;
+  }
+
+  return $VideoItemModelCopyWith<$Res>(_self.currentVideo!, (value) {
+    return _then(_self.copyWith(currentVideo: value));
+  });
+}/// Create a copy of RecommendPlayerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
@@ -194,10 +207,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int currentIndex,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int currentIndex,  VideoItemModel? currentVideo,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _RecommendPlayerState() when $default != null:
-return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
+return $default(_that.currentIndex,_that.currentVideo,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
   return orElse();
 
 }
@@ -215,10 +228,10 @@ return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int currentIndex,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int currentIndex,  VideoItemModel? currentVideo,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)  $default,) {final _that = this;
 switch (_that) {
 case _RecommendPlayerState():
-return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
+return $default(_that.currentIndex,_that.currentVideo,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -235,10 +248,10 @@ return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int currentIndex,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int currentIndex,  VideoItemModel? currentVideo,  String currentPlayUrl,  String currentAudioUrl,  int currentQn,  List<VideoQualityItem> qualities,  bool isLoading,  bool isBuffering,  bool isPlaying,  Duration position,  Duration duration,  double speed,  bool isPurePlayback,  bool showControls,  String onlineCount,  bool hasLike,  bool hasDislike,  bool hasCoin,  bool hasFav,  TvPlayMode playMode,  bool danmakuEnabled,  double danmakuSize,  double danmakuSpeed,  double danmakuArea,  VideoCollectionModel? ugcSeason,  List<VideoItemModel> upWorks,  List<VideoItemModel> relatedVideos,  String? error)?  $default,) {final _that = this;
 switch (_that) {
 case _RecommendPlayerState() when $default != null:
-return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
+return $default(_that.currentIndex,_that.currentVideo,_that.currentPlayUrl,_that.currentAudioUrl,_that.currentQn,_that.qualities,_that.isLoading,_that.isBuffering,_that.isPlaying,_that.position,_that.duration,_that.speed,_that.isPurePlayback,_that.showControls,_that.onlineCount,_that.hasLike,_that.hasDislike,_that.hasCoin,_that.hasFav,_that.playMode,_that.danmakuEnabled,_that.danmakuSize,_that.danmakuSpeed,_that.danmakuArea,_that.ugcSeason,_that.upWorks,_that.relatedVideos,_that.error);case _:
   return null;
 
 }
@@ -250,10 +263,11 @@ return $default(_that.currentIndex,_that.currentPlayUrl,_that.currentAudioUrl,_t
 
 
 class _RecommendPlayerState implements RecommendPlayerState {
-  const _RecommendPlayerState({this.currentIndex = 0, this.currentPlayUrl = '', this.currentAudioUrl = '', this.currentQn = 80,  List<VideoQualityItem> qualities = const [], this.isLoading = true, this.isBuffering = false, this.isPlaying = false, this.position = Duration.zero, this.duration = Duration.zero, this.speed = 1.0, this.isPurePlayback = false, this.showControls = false, this.onlineCount = '', this.hasLike = false, this.hasDislike = false, this.hasCoin = false, this.hasFav = false, this.playMode = TvPlayMode.sequence, this.danmakuEnabled = true, this.danmakuSize = 1.0, this.danmakuSpeed = 1.0, this.danmakuArea = 1.0, this.ugcSeason,  List<VideoItemModel> upWorks = const [],  List<VideoItemModel> relatedVideos = const [], this.error}): _qualities = qualities,_upWorks = upWorks,_relatedVideos = relatedVideos;
+  const _RecommendPlayerState({this.currentIndex = 0, this.currentVideo, this.currentPlayUrl = '', this.currentAudioUrl = '', this.currentQn = 80,  List<VideoQualityItem> qualities = const [], this.isLoading = true, this.isBuffering = false, this.isPlaying = false, this.position = Duration.zero, this.duration = Duration.zero, this.speed = 1.0, this.isPurePlayback = false, this.showControls = false, this.onlineCount = '', this.hasLike = false, this.hasDislike = false, this.hasCoin = false, this.hasFav = false, this.playMode = TvPlayMode.sequence, this.danmakuEnabled = true, this.danmakuSize = 1.0, this.danmakuSpeed = 1.0, this.danmakuArea = 1.0, this.ugcSeason,  List<VideoItemModel> upWorks = const [],  List<VideoItemModel> relatedVideos = const [], this.error}): _qualities = qualities,_upWorks = upWorks,_relatedVideos = relatedVideos;
   
 
 @override@JsonKey() final  int currentIndex;
+@override final  VideoItemModel? currentVideo;
 @override@JsonKey() final  String currentPlayUrl;
 @override@JsonKey() final  String currentAudioUrl;
 @override@JsonKey() final  int currentQn;
@@ -309,18 +323,18 @@ _$RecommendPlayerStateCopyWith<_RecommendPlayerState> get copyWith => __$Recomme
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _RecommendPlayerState&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.currentPlayUrl, currentPlayUrl) || other.currentPlayUrl == currentPlayUrl)&&(identical(other.currentAudioUrl, currentAudioUrl) || other.currentAudioUrl == currentAudioUrl)&&(identical(other.currentQn, currentQn) || other.currentQn == currentQn)&&const DeepCollectionEquality().equals(other.qualities, _qualities)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isBuffering, isBuffering) || other.isBuffering == isBuffering)&&(identical(other.isPlaying, isPlaying) || other.isPlaying == isPlaying)&&(identical(other.position, position) || other.position == position)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.speed, speed) || other.speed == speed)&&(identical(other.isPurePlayback, isPurePlayback) || other.isPurePlayback == isPurePlayback)&&(identical(other.showControls, showControls) || other.showControls == showControls)&&(identical(other.onlineCount, onlineCount) || other.onlineCount == onlineCount)&&(identical(other.hasLike, hasLike) || other.hasLike == hasLike)&&(identical(other.hasDislike, hasDislike) || other.hasDislike == hasDislike)&&(identical(other.hasCoin, hasCoin) || other.hasCoin == hasCoin)&&(identical(other.hasFav, hasFav) || other.hasFav == hasFav)&&(identical(other.playMode, playMode) || other.playMode == playMode)&&(identical(other.danmakuEnabled, danmakuEnabled) || other.danmakuEnabled == danmakuEnabled)&&(identical(other.danmakuSize, danmakuSize) || other.danmakuSize == danmakuSize)&&(identical(other.danmakuSpeed, danmakuSpeed) || other.danmakuSpeed == danmakuSpeed)&&(identical(other.danmakuArea, danmakuArea) || other.danmakuArea == danmakuArea)&&(identical(other.ugcSeason, ugcSeason) || other.ugcSeason == ugcSeason)&&const DeepCollectionEquality().equals(other.upWorks, _upWorks)&&const DeepCollectionEquality().equals(other.relatedVideos, _relatedVideos)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _RecommendPlayerState&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.currentVideo, currentVideo) || other.currentVideo == currentVideo)&&(identical(other.currentPlayUrl, currentPlayUrl) || other.currentPlayUrl == currentPlayUrl)&&(identical(other.currentAudioUrl, currentAudioUrl) || other.currentAudioUrl == currentAudioUrl)&&(identical(other.currentQn, currentQn) || other.currentQn == currentQn)&&const DeepCollectionEquality().equals(other.qualities, _qualities)&&(identical(other.isLoading, isLoading) || other.isLoading == isLoading)&&(identical(other.isBuffering, isBuffering) || other.isBuffering == isBuffering)&&(identical(other.isPlaying, isPlaying) || other.isPlaying == isPlaying)&&(identical(other.position, position) || other.position == position)&&(identical(other.duration, duration) || other.duration == duration)&&(identical(other.speed, speed) || other.speed == speed)&&(identical(other.isPurePlayback, isPurePlayback) || other.isPurePlayback == isPurePlayback)&&(identical(other.showControls, showControls) || other.showControls == showControls)&&(identical(other.onlineCount, onlineCount) || other.onlineCount == onlineCount)&&(identical(other.hasLike, hasLike) || other.hasLike == hasLike)&&(identical(other.hasDislike, hasDislike) || other.hasDislike == hasDislike)&&(identical(other.hasCoin, hasCoin) || other.hasCoin == hasCoin)&&(identical(other.hasFav, hasFav) || other.hasFav == hasFav)&&(identical(other.playMode, playMode) || other.playMode == playMode)&&(identical(other.danmakuEnabled, danmakuEnabled) || other.danmakuEnabled == danmakuEnabled)&&(identical(other.danmakuSize, danmakuSize) || other.danmakuSize == danmakuSize)&&(identical(other.danmakuSpeed, danmakuSpeed) || other.danmakuSpeed == danmakuSpeed)&&(identical(other.danmakuArea, danmakuArea) || other.danmakuArea == danmakuArea)&&(identical(other.ugcSeason, ugcSeason) || other.ugcSeason == ugcSeason)&&const DeepCollectionEquality().equals(other.upWorks, _upWorks)&&const DeepCollectionEquality().equals(other.relatedVideos, _relatedVideos)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
 int get hashCode {
-    return Object.hashAll([runtimeType,currentIndex,currentPlayUrl,currentAudioUrl,currentQn,const DeepCollectionEquality().hash(_qualities),isLoading,isBuffering,isPlaying,position,duration,speed,isPurePlayback,showControls,onlineCount,hasLike,hasDislike,hasCoin,hasFav,playMode,danmakuEnabled,danmakuSize,danmakuSpeed,danmakuArea,ugcSeason,const DeepCollectionEquality().hash(_upWorks),const DeepCollectionEquality().hash(_relatedVideos),error]);
+    return Object.hashAll([runtimeType,currentIndex,currentVideo,currentPlayUrl,currentAudioUrl,currentQn,const DeepCollectionEquality().hash(_qualities),isLoading,isBuffering,isPlaying,position,duration,speed,isPurePlayback,showControls,onlineCount,hasLike,hasDislike,hasCoin,hasFav,playMode,danmakuEnabled,danmakuSize,danmakuSpeed,danmakuArea,ugcSeason,const DeepCollectionEquality().hash(_upWorks),const DeepCollectionEquality().hash(_relatedVideos),error]);
 }
 
 @override
 String toString() {
-    return 'RecommendPlayerState(currentIndex: $currentIndex, currentPlayUrl: $currentPlayUrl, currentAudioUrl: $currentAudioUrl, currentQn: $currentQn, qualities: $qualities, isLoading: $isLoading, isBuffering: $isBuffering, isPlaying: $isPlaying, position: $position, duration: $duration, speed: $speed, isPurePlayback: $isPurePlayback, showControls: $showControls, onlineCount: $onlineCount, hasLike: $hasLike, hasDislike: $hasDislike, hasCoin: $hasCoin, hasFav: $hasFav, playMode: $playMode, danmakuEnabled: $danmakuEnabled, danmakuSize: $danmakuSize, danmakuSpeed: $danmakuSpeed, danmakuArea: $danmakuArea, ugcSeason: $ugcSeason, upWorks: $upWorks, relatedVideos: $relatedVideos, error: $error)';
+    return 'RecommendPlayerState(currentIndex: $currentIndex, currentVideo: $currentVideo, currentPlayUrl: $currentPlayUrl, currentAudioUrl: $currentAudioUrl, currentQn: $currentQn, qualities: $qualities, isLoading: $isLoading, isBuffering: $isBuffering, isPlaying: $isPlaying, position: $position, duration: $duration, speed: $speed, isPurePlayback: $isPurePlayback, showControls: $showControls, onlineCount: $onlineCount, hasLike: $hasLike, hasDislike: $hasDislike, hasCoin: $hasCoin, hasFav: $hasFav, playMode: $playMode, danmakuEnabled: $danmakuEnabled, danmakuSize: $danmakuSize, danmakuSpeed: $danmakuSpeed, danmakuArea: $danmakuArea, ugcSeason: $ugcSeason, upWorks: $upWorks, relatedVideos: $relatedVideos, error: $error)';
 }
 
 
@@ -331,11 +345,11 @@ abstract mixin class _$RecommendPlayerStateCopyWith<$Res> implements $RecommendP
   factory _$RecommendPlayerStateCopyWith(_RecommendPlayerState value, $Res Function(_RecommendPlayerState) _then) = __$RecommendPlayerStateCopyWithImpl;
 @override @useResult
 $Res call({
- int currentIndex, String currentPlayUrl, String currentAudioUrl, int currentQn, List<VideoQualityItem> qualities, bool isLoading, bool isBuffering, bool isPlaying, Duration position, Duration duration, double speed, bool isPurePlayback, bool showControls, String onlineCount, bool hasLike, bool hasDislike, bool hasCoin, bool hasFav, TvPlayMode playMode, bool danmakuEnabled, double danmakuSize, double danmakuSpeed, double danmakuArea, VideoCollectionModel? ugcSeason, List<VideoItemModel> upWorks, List<VideoItemModel> relatedVideos, String? error
+ int currentIndex, VideoItemModel? currentVideo, String currentPlayUrl, String currentAudioUrl, int currentQn, List<VideoQualityItem> qualities, bool isLoading, bool isBuffering, bool isPlaying, Duration position, Duration duration, double speed, bool isPurePlayback, bool showControls, String onlineCount, bool hasLike, bool hasDislike, bool hasCoin, bool hasFav, TvPlayMode playMode, bool danmakuEnabled, double danmakuSize, double danmakuSpeed, double danmakuArea, VideoCollectionModel? ugcSeason, List<VideoItemModel> upWorks, List<VideoItemModel> relatedVideos, String? error
 });
 
 
-@override $VideoCollectionModelCopyWith<$Res>? get ugcSeason;
+@override $VideoItemModelCopyWith<$Res>? get currentVideo;@override $VideoCollectionModelCopyWith<$Res>? get ugcSeason;
 
 }
 /// @nodoc
@@ -348,10 +362,11 @@ class __$RecommendPlayerStateCopyWithImpl<$Res>
 
 /// Create a copy of RecommendPlayerState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? currentIndex = null,Object? currentPlayUrl = null,Object? currentAudioUrl = null,Object? currentQn = null,Object? qualities = null,Object? isLoading = null,Object? isBuffering = null,Object? isPlaying = null,Object? position = null,Object? duration = null,Object? speed = null,Object? isPurePlayback = null,Object? showControls = null,Object? onlineCount = null,Object? hasLike = null,Object? hasDislike = null,Object? hasCoin = null,Object? hasFav = null,Object? playMode = null,Object? danmakuEnabled = null,Object? danmakuSize = null,Object? danmakuSpeed = null,Object? danmakuArea = null,Object? ugcSeason = freezed,Object? upWorks = null,Object? relatedVideos = null,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? currentIndex = null,Object? currentVideo = freezed,Object? currentPlayUrl = null,Object? currentAudioUrl = null,Object? currentQn = null,Object? qualities = null,Object? isLoading = null,Object? isBuffering = null,Object? isPlaying = null,Object? position = null,Object? duration = null,Object? speed = null,Object? isPurePlayback = null,Object? showControls = null,Object? onlineCount = null,Object? hasLike = null,Object? hasDislike = null,Object? hasCoin = null,Object? hasFav = null,Object? playMode = null,Object? danmakuEnabled = null,Object? danmakuSize = null,Object? danmakuSpeed = null,Object? danmakuArea = null,Object? ugcSeason = freezed,Object? upWorks = null,Object? relatedVideos = null,Object? error = freezed,}) {
   return _then(_RecommendPlayerState(
 currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
-as int,currentPlayUrl: null == currentPlayUrl ? _self.currentPlayUrl : currentPlayUrl // ignore: cast_nullable_to_non_nullable
+as int,currentVideo: freezed == currentVideo ? _self.currentVideo : currentVideo // ignore: cast_nullable_to_non_nullable
+as VideoItemModel?,currentPlayUrl: null == currentPlayUrl ? _self.currentPlayUrl : currentPlayUrl // ignore: cast_nullable_to_non_nullable
 as String,currentAudioUrl: null == currentAudioUrl ? _self.currentAudioUrl : currentAudioUrl // ignore: cast_nullable_to_non_nullable
 as String,currentQn: null == currentQn ? _self.currentQn : currentQn // ignore: cast_nullable_to_non_nullable
 as int,qualities: null == qualities ? _self._qualities : qualities // ignore: cast_nullable_to_non_nullable
@@ -382,6 +397,18 @@ as String?,
 }
 
 /// Create a copy of RecommendPlayerState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VideoItemModelCopyWith<$Res>? get currentVideo {
+    if (_self.currentVideo == null) {
+    return null;
+  }
+
+  return $VideoItemModelCopyWith<$Res>(_self.currentVideo!, (value) {
+    return _then(_self.copyWith(currentVideo: value));
+  });
+}/// Create a copy of RecommendPlayerState
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')

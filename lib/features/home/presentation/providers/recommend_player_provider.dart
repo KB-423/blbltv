@@ -112,18 +112,19 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     if (_isDisposed) return;
     try {
       final videos = ref.read(homeFeedProvider).videos;
-      if (videos.isNotEmpty && state.currentIndex < videos.length) {
-        final cur = videos[state.currentIndex];
-        if (cur.bvid.isNotEmpty && cur.cid > 0) {
-          final playedSec =
-              _player?.state.position.inSeconds ?? state.position.inSeconds;
-          _playerRepository.reportHeartbeat(
-            bvid: cur.bvid,
-            cid: cur.cid,
-            playedTime: playedSec,
-            duration: state.duration.inSeconds,
-          );
-        }
+      final cur = state.currentVideo ??
+          (videos.isNotEmpty && state.currentIndex < videos.length
+              ? videos[state.currentIndex]
+              : null);
+      if (cur != null && cur.bvid.isNotEmpty && cur.cid > 0) {
+        final playedSec =
+            _player?.state.position.inSeconds ?? state.position.inSeconds;
+        _playerRepository.reportHeartbeat(
+          bvid: cur.bvid,
+          cid: cur.cid,
+          playedTime: playedSec,
+          duration: state.duration.inSeconds,
+        );
       }
     } catch (_) {}
   }
@@ -181,38 +182,56 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     }
   }
 
-  /// 播放指定索引的推荐视频
-  Future<void> playAt(
-    int index, {
+  /// 播放指定视频对象 (支持来自推荐流、合集、UP主作品或相关推荐)
+  Future<void> playVideo(
+    VideoItemModel targetVideo, {
     Duration startPosition = Duration.zero,
   }) async {
     final videos = ref.read(homeFeedProvider).videos;
-    if (index < 0 || index >= videos.length) return;
+    final existingIdx = videos.indexWhere((v) => v.bvid == targetVideo.bvid);
+    final idx = existingIdx >= 0 ? existingIdx : state.currentIndex;
 
-    final targetVideo = videos[index];
     state = state.copyWith(
-      currentIndex: index,
+      currentIndex: idx,
+      currentVideo: targetVideo,
       isLoading: true,
       error: null,
     );
 
     resetIdleTimer();
 
-    // 预加载下一页
-    if (index >= videos.length - 4) {
-      ref.read(homeFeedProvider.notifier).loadMore();
-    }
-
     try {
+      int cid = targetVideo.cid;
+      VideoItemModel actualVideo = targetVideo;
+
+      // 若未携带有效 cid，异步从详情接口拉取
+      if (cid <= 0 && targetVideo.bvid.isNotEmpty) {
+        final detail =
+            await _playerRepository.fetchFullVideoDetail(targetVideo.bvid);
+        cid = detail.cid;
+        actualVideo = targetVideo.copyWith(
+          cid: cid,
+          title: detail.title.isNotEmpty ? detail.title : targetVideo.title,
+          owner: detail.owner ?? targetVideo.owner,
+          stat: detail.stat ?? targetVideo.stat,
+          duration: detail.durationSeconds > 0
+              ? detail.durationSeconds
+              : targetVideo.duration,
+        );
+      }
+
+      if (_isDisposed) return;
+
       final preferredQn = _storageService.preferredQuality;
       final playInfo = await _playerRepository.fetchPlayUrl(
-        bvid: targetVideo.bvid,
-        cid: targetVideo.cid,
+        bvid: actualVideo.bvid,
+        cid: cid,
         qn: preferredQn,
       );
       if (_isDisposed) return;
 
       state = state.copyWith(
+        currentVideo: actualVideo,
         currentPlayUrl: playInfo.playUrl,
         currentAudioUrl: playInfo.audioUrl,
         currentQn: playInfo.currentQn,
@@ -227,7 +246,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       );
 
       // 并行异步加载额外数据（在线人数、合集、UP主作品、相关推荐、点赞状态）
-      _loadExtraDetails(targetVideo);
+      _loadExtraDetails(actualVideo);
     } catch (e) {
       if (_isDisposed) return;
       debugPrint('[RecommendPlayer] 播放视频失败: $e');
@@ -236,6 +255,36 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
         error: '视频加载失败: $e',
       );
     }
+  }
+
+  /// 播放指定 BVID 的视频
+  Future<void> playBvid(
+    String bvid, {
+    int cid = 0,
+    Duration startPosition = Duration.zero,
+  }) async {
+    final video = VideoItemModel(
+      bvid: bvid,
+      cid: cid,
+      title: '加载中...',
+    );
+    await playVideo(video, startPosition: startPosition);
+  }
+
+  /// 播放指定索引的推荐视频
+  Future<void> playAt(
+    int index, {
+    Duration startPosition = Duration.zero,
+  }) async {
+    final videos = ref.read(homeFeedProvider).videos;
+    if (index < 0 || index >= videos.length) return;
+
+    // 预加载下一页
+    if (index >= videos.length - 4) {
+      ref.read(homeFeedProvider.notifier).loadMore();
+    }
+
+    await playVideo(videos[index], startPosition: startPosition);
   }
 
   /// 即时上下键切台：上一个视频（在纯享模式下保持纯享）
