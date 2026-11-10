@@ -34,7 +34,30 @@ class _TvRecommendRailState extends ConsumerState<TvRecommendRail> {
   final ScrollController _scrollController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.hasClients) {
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.position.pixels;
+      if (maxScroll - currentScroll <= 300) {
+        ref.read(homeFeedProvider.notifier).loadMore();
+      }
+    }
+  }
+
+  @override
+  void deactivate() {
+    ref.read(recommendPlayerProvider.notifier).cancelHoverPlay();
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
   }
@@ -118,22 +141,48 @@ class _TvRecommendRailState extends ConsumerState<TvRecommendRail> {
             Expanded(
               child: ListView.separated(
                 controller: _scrollController,
-                itemCount: videos.length,
+                itemCount: videos.length + (feedState.isLoadingMore ? 1 : 0),
                 separatorBuilder: (context, index) => const SizedBox(height: 10),
                 itemBuilder: (context, index) {
+                  if (index >= videos.length) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Center(
+                        child: SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(TvTheme.biliPink),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
                   final video = videos[index];
                   final isCurrentlyPlaying = index == playerState.currentIndex;
+                  final isLast = index == videos.length - 1;
 
                   return _RecommendRailCard(
+                    key: ValueKey(video.bvid),
                     video: video,
                     index: index,
                     isPlaying: isCurrentlyPlaying,
+                    isLast: isLast,
                     focusNode: isCurrentlyPlaying
                         ? widget.activeCardFocusNode
                         : null,
                     onFocusChanged: (focused) {
                       if (focused) {
                         notifier.resetIdleTimer();
+                        // 规划 3 秒停留自动切换视频
+                        notifier.scheduleHoverPlay(index);
+                        // 倒数第 4 项及更后自动触发加载更多
+                        if (index >= videos.length - 4) {
+                          ref.read(homeFeedProvider.notifier).loadMore();
+                        }
                         // 当焦点向下移出第 0 项时，通知顶部栏精简为图标模式
                         if (index > 0) {
                           ref
@@ -146,7 +195,17 @@ class _TvRecommendRailState extends ConsumerState<TvRecommendRail> {
                         }
                       }
                     },
+                    onDirection: (direction) {
+                      // 若在最后一项按向下键，主动触发追加加载
+                      if (direction == TraversalDirection.down && isLast) {
+                        notifier.resetIdleTimer();
+                        ref.read(homeFeedProvider.notifier).loadMore();
+                        return true;
+                      }
+                      return false;
+                    },
                     onSelect: () {
+                      notifier.cancelHoverPlay();
                       notifier.playAt(index);
                       notifier.enterPurePlayback();
                     },
@@ -165,17 +224,22 @@ class _RecommendRailCard extends StatelessWidget {
   final VideoItemModel video;
   final int index;
   final bool isPlaying;
+  final bool isLast;
   final FocusNode? focusNode;
   final ValueChanged<bool> onFocusChanged;
   final VoidCallback onSelect;
+  final DpadDirectionCallback? onDirection;
 
   const _RecommendRailCard({
+    super.key,
     required this.video,
     required this.index,
     required this.isPlaying,
+    this.isLast = false,
     this.focusNode,
     required this.onFocusChanged,
     required this.onSelect,
+    this.onDirection,
   });
 
   @override
@@ -184,6 +248,7 @@ class _RecommendRailCard extends StatelessWidget {
       focusNode: focusNode,
       onFocusChange: onFocusChanged,
       onSelect: onSelect,
+      onDirection: onDirection,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeOutCubic,

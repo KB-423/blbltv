@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bili_tv/core/storage/storage_service.dart';
 import 'package:bili_tv/core/utils/back_navigation_debounce.dart';
+import 'package:bili_tv/features/home/data/repositories/home_repository.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_provider.dart';
 import 'package:bili_tv/features/home/presentation/providers/home_state.dart';
 import 'package:bili_tv/features/home/presentation/providers/recommend_player_provider.dart';
@@ -284,4 +287,227 @@ void main() {
       expect(closed, true);
     });
   });
+
+  group('HomeFeedNotifier Queue Limit & Deduplication Tests', () {
+    test('truncates videos from head when exceeding 100 and deduplicates bvids', () async {
+      final fakeRepo = _MockHomeRepository(
+        onFetch: (freshIdx, pageSize) async {
+          // 每次返回 20 个，前两个与上一批重复以验证去重
+          final start = (freshIdx - 1) * 18;
+          return List.generate(
+            20,
+            (i) => VideoItemModel(
+              id: start + i,
+              bvid: 'BV_item_${start + i}',
+              title: '推荐视频 ${start + i}',
+            ),
+          );
+        },
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          homeRepositoryProvider.overrideWithValue(fakeRepo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(homeFeedProvider.notifier);
+      await notifier.init();
+
+      expect(container.read(homeFeedProvider).videos.length, 20);
+
+      // 连续加载 6 次 (20 * 6 = 120+ 项，但经去重与截断，队列必须保持在 100 项之内)
+      for (int i = 0; i < 6; i++) {
+        await notifier.loadMore();
+      }
+
+      final currentVideos = container.read(homeFeedProvider).videos;
+      expect(currentVideos.length, lessThanOrEqualTo(HomeFeedNotifier.maxQueueSize));
+      expect(currentVideos.length, equals(100));
+
+      // 验证头部早期项（如 BV_item_0）已被从头部截断
+      expect(currentVideos.any((v) => v.bvid == 'BV_item_0'), isFalse);
+      // 验证最新的项依然存在
+      expect(currentVideos.last.bvid, contains('BV_item_'));
+    });
+  });
+
+  group('RecommendPlayerNotifier Hover Switch & 5-Second Idle Tests', () {
+    testWidgets('3-second hover triggers auto-switch and 5-second idle enters pure playback',
+        (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final storage = StorageService(prefs);
+
+      int playAtIndex = -1;
+      final customNotifier = _InteractiveRecommendPlayerNotifier(
+        onPlayAt: (idx) => playAtIndex = idx,
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          storageServiceProvider.overrideWithValue(storage),
+          recommendPlayerProvider.overrideWith(() => customNotifier),
+          homeFeedProvider.overrideWith(() => _PreloadedHomeFeedNotifier()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(recommendPlayerProvider.notifier);
+
+      // 1. 测试 3 秒停留切换
+      notifier.scheduleHoverPlay(3);
+      expect(playAtIndex, -1); // 立即检查尚未触发
+
+      // 前进 2 秒，仍不触发
+      await tester.pump(const Duration(seconds: 2));
+      expect(playAtIndex, -1);
+
+      // 再前进 1.1 秒（累计超过 3 秒），触发切换到第 3 个视频
+      await tester.pump(const Duration(milliseconds: 1100));
+      expect(playAtIndex, 3);
+
+      // 2. 测试 cancelHoverPlay 取消倒计时
+      playAtIndex = -1;
+      notifier.scheduleHoverPlay(4);
+      await tester.pump(const Duration(seconds: 1));
+      notifier.cancelHoverPlay();
+      await tester.pump(const Duration(seconds: 3));
+      expect(playAtIndex, -1); // 被取消，不触发
+
+      // 3. 测试 5 秒无操作进入纯享播放
+      notifier.resetIdleTimer();
+      expect(container.read(recommendPlayerProvider).isPurePlayback, isFalse);
+
+      await tester.pump(const Duration(seconds: 4));
+      expect(container.read(recommendPlayerProvider).isPurePlayback, isFalse);
+
+      await tester.pump(const Duration(seconds: 1, milliseconds: 200));
+      expect(container.read(recommendPlayerProvider).isPurePlayback, isTrue);
+    });
+
+    test('syncs currentIndex when videos list is truncated from head', () {
+      final customNotifier = _InteractiveRecommendPlayerNotifier();
+      final feedNotifier = _DynamicHomeFeedNotifier([
+        const VideoItemModel(bvid: 'BV_0', title: '视频 0'),
+        const VideoItemModel(bvid: 'BV_1', title: '视频 1'),
+        const VideoItemModel(bvid: 'BV_2', title: '视频 2'),
+        const VideoItemModel(bvid: 'BV_3', title: '视频 3'),
+      ]);
+
+      final container = ProviderContainer(
+        overrides: [
+          recommendPlayerProvider.overrideWith(() => customNotifier),
+          homeFeedProvider.overrideWith(() => feedNotifier),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final playerNotifier =
+          container.read(recommendPlayerProvider.notifier) as _InteractiveRecommendPlayerNotifier;
+
+      // 初始播放视频 2 (index: 2)
+      playerNotifier.setCurrentVideoForTest(
+        const VideoItemModel(bvid: 'BV_2', title: '视频 2'),
+        2,
+      );
+      expect(container.read(recommendPlayerProvider).currentIndex, 2);
+
+      // 模拟从头部截断两项 (BV_0, BV_1 被移除)
+      feedNotifier.setVideos([
+        const VideoItemModel(bvid: 'BV_2', title: '视频 2'),
+        const VideoItemModel(bvid: 'BV_3', title: '视频 3'),
+        const VideoItemModel(bvid: 'BV_4', title: '视频 4'),
+      ]);
+
+      // 此时 BV_2 在新列表中的下标应变为 0
+      expect(container.read(recommendPlayerProvider).currentIndex, 0);
+    });
+  });
+}
+
+class _MockHomeRepository implements HomeRepository {
+  final Future<List<VideoItemModel>> Function(int freshIdx, int pageSize) onFetch;
+
+  _MockHomeRepository({required this.onFetch});
+
+  @override
+  Future<List<VideoItemModel>> fetchRecommendVideos({
+    required int freshIdx,
+    int pageSize = 16,
+  }) {
+    return onFetch(freshIdx, pageSize);
+  }
+}
+
+class _PreloadedHomeFeedNotifier extends HomeFeedNotifier {
+  @override
+  HomeFeedState build() {
+    return HomeFeedState(
+      isLoading: false,
+      videos: List.generate(
+        10,
+        (i) => VideoItemModel(bvid: 'BV_feed_$i', title: '预加载视频 $i'),
+      ),
+    );
+  }
+}
+
+class _DynamicHomeFeedNotifier extends HomeFeedNotifier {
+  final List<VideoItemModel> _initialVideos;
+
+  _DynamicHomeFeedNotifier(this._initialVideos);
+
+  @override
+  HomeFeedState build() {
+    return HomeFeedState(isLoading: false, videos: _initialVideos);
+  }
+
+  void setVideos(List<VideoItemModel> videos) {
+    state = state.copyWith(videos: videos);
+  }
+}
+
+class _InteractiveRecommendPlayerNotifier extends RecommendPlayerNotifier {
+  final ValueChanged<int>? onPlayAt;
+
+  _InteractiveRecommendPlayerNotifier({this.onPlayAt});
+
+  @override
+  RecommendPlayerState build() {
+    // 监听首页推荐数据流：当推荐队列从头部截断时同步修正 currentIndex
+    ref.listen(homeFeedProvider, (prev, next) {
+      if (state.currentVideo != null && next.videos.isNotEmpty) {
+        final curBvid = state.currentVideo!.bvid;
+        final newIndex = next.videos.indexWhere((v) => v.bvid == curBvid);
+        if (newIndex >= 0 && newIndex != state.currentIndex) {
+          state = state.copyWith(currentIndex: newIndex);
+        } else if (newIndex < 0 && state.currentIndex >= next.videos.length) {
+          state = state.copyWith(currentIndex: next.videos.length - 1);
+        }
+      }
+    });
+
+    return const RecommendPlayerState(
+      currentIndex: 0,
+      isLoading: false,
+      isPurePlayback: false,
+      showControls: false,
+    );
+  }
+
+  void setCurrentVideoForTest(VideoItemModel video, int index) {
+    state = state.copyWith(currentVideo: video, currentIndex: index);
+  }
+
+  @override
+  Future<void> playAt(int index,
+      {Duration startPosition = Duration.zero, bool resetIdle = true}) async {
+    state = state.copyWith(currentIndex: index);
+    onPlayAt?.call(index);
+    if (resetIdle) {
+      resetIdleTimer();
+    }
+  }
 }

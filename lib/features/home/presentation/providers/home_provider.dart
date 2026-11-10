@@ -63,6 +63,9 @@ class HomeFeedNotifier extends Notifier<HomeFeedState> {
     }
   }
 
+  /// 推荐视频队列默认保留上限（超出后从头部截断以节省大屏内存与性能）
+  static const int maxQueueSize = 100;
+
   /// 遥控器触底自动追加加载 (TV Infinite Scroll)
   Future<void> loadMore() async {
     if (state.isLoadingMore || state.isRefreshing || state.isLoading || !state.hasMore) {
@@ -84,8 +87,20 @@ class HomeFeedNotifier extends Notifier<HomeFeedState> {
           hasMore: false,
         );
       } else {
+        // 对新增视频基于 bvid 去重
+        final existingBvids = state.videos.map((v) => v.bvid).toSet();
+        final uniqueNew =
+            nextVideos.where((v) => !existingBvids.contains(v.bvid)).toList();
+
+        var combined = [...state.videos, ...uniqueNew];
+        if (combined.length > maxQueueSize) {
+          // 超过 100 个后，从头部截断超出部分，保证队列默认保留 100 个
+          final truncateCount = combined.length - maxQueueSize;
+          combined = combined.sublist(truncateCount);
+        }
+
         state = state.copyWith(
-          videos: [...state.videos, ...nextVideos],
+          videos: combined,
           isLoadingMore: false,
           freshIdx: nextIdx,
           hasMore: true,

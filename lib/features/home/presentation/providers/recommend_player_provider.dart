@@ -19,6 +19,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
   VideoController? _videoController;
 
   Timer? _idleTimer;
+  Timer? _hoverPlayTimer;
   Timer? _heartbeatTimer;
   bool _isDisposed = false;
   bool _hasStartedInitialVideo = false;
@@ -47,11 +48,20 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       _stopAndDispose();
     });
 
-    // 监听首页推荐数据流：一旦推荐数据就绪，默认起播第 1 个视频
+    // 监听首页推荐数据流：一旦推荐数据就绪，默认起播第 1 个视频；
+    // 当推荐队列由于超过上限从头部截断时，平滑修正 currentIndex 下标
     ref.listen(homeFeedProvider, (prev, next) {
       if (!_hasStartedInitialVideo && next.videos.isNotEmpty) {
         _hasStartedInitialVideo = true;
         Future.microtask(() => playAt(0));
+      } else if (state.currentVideo != null && next.videos.isNotEmpty) {
+        final curBvid = state.currentVideo!.bvid;
+        final newIndex = next.videos.indexWhere((v) => v.bvid == curBvid);
+        if (newIndex >= 0 && newIndex != state.currentIndex) {
+          state = state.copyWith(currentIndex: newIndex);
+        } else if (newIndex < 0 && state.currentIndex >= next.videos.length) {
+          state = state.copyWith(currentIndex: next.videos.length - 1);
+        }
       }
     });
 
@@ -97,6 +107,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     _isDisposed = true;
 
     _idleTimer?.cancel();
+    _hoverPlayTimer?.cancel();
     _heartbeatTimer?.cancel();
     _cancelSubscriptions();
 
@@ -129,11 +140,11 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     } catch (_) {}
   }
 
-  /// 重置 3 秒无操作定时器（在左侧卡片未隐藏时，任何按键操作均重置该计时）
+  /// 重置 5 秒无操作定时器（在左侧卡片未隐藏时，任何按键操作均重置该计时）
   void resetIdleTimer() {
     _idleTimer?.cancel();
     if (!state.isPurePlayback && !state.showControls) {
-      _idleTimer = Timer(const Duration(seconds: 3), () {
+      _idleTimer = Timer(const Duration(seconds: 5), () {
         if (!_isDisposed && ref.mounted) {
           enterPurePlayback();
         }
@@ -141,9 +152,32 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     }
   }
 
+  /// 规划 3 秒停留自动切换视频（若用户在当前卡片停留满 3 秒无操作，自动切播该视频）
+  void scheduleHoverPlay(int index) {
+    _hoverPlayTimer?.cancel();
+    if (index < 0 || index == state.currentIndex) return;
+
+    _hoverPlayTimer = Timer(const Duration(seconds: 3), () {
+      if (!_isDisposed && ref.mounted) {
+        final videos = ref.read(homeFeedProvider).videos;
+        if (index < videos.length) {
+          // 停留触发的自动切播不重置 5 秒隐藏倒计时
+          playAt(index, resetIdle: false);
+        }
+      }
+    });
+  }
+
+  /// 取消停留切换倒计时（例如用户按下了 OK 立即起播，或焦点移出了卡片列表）
+  void cancelHoverPlay() {
+    _hoverPlayTimer?.cancel();
+    _hoverPlayTimer = null;
+  }
+
   /// 进入纯享播放模式（左侧卡片与顶栏全部淡出隐藏）
   void enterPurePlayback() {
     _idleTimer?.cancel();
+    cancelHoverPlay();
     state = state.copyWith(
       isPurePlayback: true,
       showControls: false,
@@ -186,6 +220,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
   Future<void> playVideo(
     VideoItemModel targetVideo, {
     Duration startPosition = Duration.zero,
+    bool resetIdle = true,
   }) async {
     final videos = ref.read(homeFeedProvider).videos;
     final existingIdx = videos.indexWhere((v) => v.bvid == targetVideo.bvid);
@@ -198,7 +233,9 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       error: null,
     );
 
-    resetIdleTimer();
+    if (resetIdle) {
+      resetIdleTimer();
+    }
 
     try {
       int cid = targetVideo.cid;
@@ -275,6 +312,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
   Future<void> playAt(
     int index, {
     Duration startPosition = Duration.zero,
+    bool resetIdle = true,
   }) async {
     final videos = ref.read(homeFeedProvider).videos;
     if (index < 0 || index >= videos.length) return;
@@ -284,7 +322,11 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       ref.read(homeFeedProvider.notifier).loadMore();
     }
 
-    await playVideo(videos[index], startPosition: startPosition);
+    await playVideo(
+      videos[index],
+      startPosition: startPosition,
+      resetIdle: resetIdle,
+    );
   }
 
   /// 即时上下键切台：上一个视频（在纯享模式下保持纯享）

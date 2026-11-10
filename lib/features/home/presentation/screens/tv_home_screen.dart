@@ -181,6 +181,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
         // 3. 若列表可见但焦点在列表，先恢复顶栏全显，再平滑交接回顶部导航栏「推荐」Tab (保留下方列表记忆)
         if (!navService.isNavRailFocused) {
+          notifier.cancelHoverPlay();
           ref.read(topBarDisplayModeProvider.notifier).showFull();
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
