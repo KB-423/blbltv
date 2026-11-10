@@ -27,6 +27,7 @@ class TvLogService {
   static int _currentFileSizeBytes = 0;
   static int _maxFileSizeBytes = 2 * 1024 * 1024; // 2MB
   static int _maxBackupFiles = 5;
+  static bool _enableFileLogging = kReleaseMode;
   static bool _isInitialized = false;
 
   // 异步写入缓冲队列与并发互斥锁
@@ -37,6 +38,9 @@ class TvLogService {
   /// 获取当前日志存储目录
   static Directory? get logDirectory => _logDirectory;
 
+  /// 是否启用了本地文件持久化 (默认仅在 Release 模式下生效)
+  static bool get enableFileLogging => _enableFileLogging;
+
   /// 是否已初始化
   static bool get isInitialized => _isInitialized;
 
@@ -45,44 +49,49 @@ class TvLogService {
   /// [maxFileSizeBytes] 单个日志文件上限（默认 2MB）
   /// [maxBackupFiles] 保留的最多备份数量（默认 5 个）
   /// [logLevel] 最低记录等级（默认 Level.ALL）
+  /// [enableFileLogging] 是否开启磁盘日志文件写入（默认仅在 Release 模式下为 true）
   static Future<void> init({
     Directory? customLogDirectory,
     int maxFileSizeBytes = 2 * 1024 * 1024,
     int maxBackupFiles = 5,
     Level logLevel = Level.ALL,
+    bool? enableFileLogging,
   }) async {
     if (_isInitialized) return;
 
+    _enableFileLogging = enableFileLogging ?? kReleaseMode;
     _maxFileSizeBytes = maxFileSizeBytes;
     _maxBackupFiles = maxBackupFiles;
 
-    // 1. 解析日志存储目录
-    if (customLogDirectory != null) {
-      _logDirectory = customLogDirectory;
-    } else {
-      try {
-        final appDocDir = await getApplicationDocumentsDirectory();
-        _logDirectory = Directory('${appDocDir.path}/logs');
-      } catch (_) {
-        // 在单元测试或无 path_provider 实现环境下平滑回退至系统临时目录
-        final temp = Directory.systemTemp.path;
-        _logDirectory = Directory('$temp/bili_tv_logs');
+    // 1. 仅在开启文件持久化时（Release模式或手动指定）解析目录并创建日志文件
+    if (_enableFileLogging) {
+      if (customLogDirectory != null) {
+        _logDirectory = customLogDirectory;
+      } else {
+        try {
+          final appDocDir = await getApplicationDocumentsDirectory();
+          _logDirectory = Directory('${appDocDir.path}/logs');
+        } catch (_) {
+          // 在单元测试或无 path_provider 实现环境下平滑回退至系统临时目录
+          final temp = Directory.systemTemp.path;
+          _logDirectory = Directory('$temp/bili_tv_logs');
+        }
       }
-    }
 
-    if (!_logDirectory!.existsSync()) {
-      _logDirectory!.createSync(recursive: true);
-    }
+      if (!_logDirectory!.existsSync()) {
+        _logDirectory!.createSync(recursive: true);
+      }
 
-    _currentLogFile = File('${_logDirectory!.path}/$_logFileName');
-    if (_currentLogFile!.existsSync()) {
-      _currentFileSizeBytes = _currentLogFile!.lengthSync();
-    } else {
-      _currentLogFile!.createSync(recursive: true);
-      _currentFileSizeBytes = 0;
-    }
+      _currentLogFile = File('${_logDirectory!.path}/$_logFileName');
+      if (_currentLogFile!.existsSync()) {
+        _currentFileSizeBytes = _currentLogFile!.lengthSync();
+      } else {
+        _currentLogFile!.createSync(recursive: true);
+        _currentFileSizeBytes = 0;
+      }
 
-    _openSink();
+      _openSink();
+    }
 
     // 2. 配置 package:logging
     Logger.root.level = logLevel;
@@ -113,8 +122,9 @@ class TvLogService {
     };
 
     _isInitialized = true;
+    final dirInfo = _logDirectory?.path ?? '(磁盘持久化已关闭，仅输出至终端与系统日志)';
     Logger('TvLogService').info(
-      '日志系统初始化成功 | 目录: ${_logDirectory!.path} | 单文件上限: ${_maxFileSizeBytes ~/ 1024} KB | 备份数: $_maxBackupFiles',
+      '日志系统初始化成功 | 磁盘持久化: ${_enableFileLogging ? "开启" : "关闭"} | 目录: $dirInfo | 单文件上限: ${_maxFileSizeBytes ~/ 1024} KB | 备份数: $_maxBackupFiles',
     );
   }
 
@@ -151,8 +161,10 @@ class TvLogService {
       debugPrint(formatted);
     }
 
-    // 2. 加入异步落盘队列
-    _enqueueLog('$formatted\n');
+    // 2. 仅在开启文件持久化时（默认 Release 模式）加入异步落盘队列
+    if (_enableFileLogging) {
+      _enqueueLog('$formatted\n');
+    }
   }
 
   static void _enqueueLog(String log) {
@@ -234,6 +246,7 @@ class TvLogService {
 
   /// 强制刷新当前缓冲区到磁盘
   static Future<void> flush() async {
+    if (!_enableFileLogging) return;
     while (_pendingLogs.isNotEmpty || _isWriting) {
       await Future.delayed(const Duration(milliseconds: 20));
     }
@@ -287,6 +300,7 @@ class TvLogService {
 
   /// 清理所有历史日志
   static Future<void> clearAllLogs() async {
+    if (!_enableFileLogging || _logDirectory == null) return;
     await flush();
     try {
       await _sink?.close();
@@ -316,6 +330,11 @@ class TvLogService {
     _loggingSubscription = null;
     await _sink?.close();
     _sink = null;
+    _currentLogFile = null;
+    _logDirectory = null;
+    _currentFileSizeBytes = 0;
+    _pendingLogs.clear();
+    _isWriting = false;
     _isInitialized = false;
   }
 }
