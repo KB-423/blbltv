@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,10 +32,8 @@ class TvHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
-  final FocusNode _playerFocusNode =
-      FocusNode(debugLabel: 'HomeScreenPlayerFocus');
-  final FocusNode _railActiveFocusNode =
-      FocusNode(debugLabel: 'HomeScreenRailActiveCardFocus');
+  final FocusNode _playerFocusNode = FocusNode(debugLabel: 'HomeScreenPlayerFocus');
+  final FocusNode _railActiveFocusNode = FocusNode(debugLabel: 'HomeScreenRailActiveCardFocus');
 
   bool _showChannelHUD = false;
   Timer? _channelHudTimer;
@@ -70,10 +69,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     });
   }
 
-  KeyEventResult _handlePurePlaybackKey(
-    KeyEvent event,
-    RecommendPlayerNotifier notifier,
-  ) {
+  KeyEventResult _handlePurePlaybackKey(KeyEvent event, RecommendPlayerNotifier notifier) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
 
     final key = event.logicalKey;
@@ -103,8 +99,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     }
 
     // 返回键 / Escape：退出纯享模式，唤醒被隐藏的左侧推荐列表与顶部栏
-    if (key == LogicalKeyboardKey.escape ||
-        key == LogicalKeyboardKey.goBack) {
+    if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
       if (BackNavigationDebounce.shouldHandle()) {
         notifier.exitPurePlayback();
         return KeyEventResult.handled;
@@ -163,9 +158,8 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     }
 
     final isRailVisible = !playerState.isPurePlayback && !playerState.showControls;
-    final canPopToShell = !playerState.showControls &&
-        !playerState.isPurePlayback &&
-        navService.isNavRailFocused;
+    final canPopToShell =
+        !playerState.showControls && !playerState.isPurePlayback && navService.isNavRailFocused;
 
     return PopScope(
       canPop: canPopToShell,
@@ -210,8 +204,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 child: Focus(
                   focusNode: _playerFocusNode,
                   autofocus: true,
-                  onKeyEvent: (node, event) =>
-                      _handlePurePlaybackKey(event, notifier),
+                  onKeyEvent: (node, event) => _handlePurePlaybackKey(event, notifier),
                   child: const SizedBox.expand(),
                 ),
               ),
@@ -233,9 +226,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                   duration: const Duration(milliseconds: 260),
                   child: ExcludeFocus(
                     excluding: !isRailVisible,
-                    child: TvRecommendRail(
-                      activeCardFocusNode: _railActiveFocusNode,
-                    ),
+                    child: TvRecommendRail(activeCardFocusNode: _railActiveFocusNode),
                   ),
                 ),
               ),
@@ -257,17 +248,10 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     );
   }
 
-  Widget _buildVideoLayer(
-    RecommendPlayerState playerState,
-    RecommendPlayerNotifier notifier,
-  ) {
+  Widget _buildVideoLayer(RecommendPlayerState playerState, RecommendPlayerNotifier notifier) {
     final controller = notifier.videoController;
     if (controller != null) {
-      return Video(
-        controller: controller,
-        controls: NoVideoControls,
-        fit: BoxFit.cover,
-      );
+      return Video(controller: controller, controls: NoVideoControls, fit: BoxFit.cover);
     }
 
     return AnimatedContainer(
@@ -288,13 +272,10 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
     );
   }
 
-  Widget _buildChannelHUD(
-    RecommendPlayerState playerState,
-    HomeFeedState feedState,
-  ) {
-    final current = playerState.currentVideo ??
-        (feedState.videos.isNotEmpty &&
-                playerState.currentIndex < feedState.videos.length
+  Widget _buildChannelHUD(RecommendPlayerState playerState, HomeFeedState feedState) {
+    final current =
+        playerState.currentVideo ??
+        (feedState.videos.isNotEmpty && playerState.currentIndex < feedState.videos.length
             ? feedState.videos[playerState.currentIndex]
             : null);
 
@@ -312,10 +293,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-              width: 1.0,
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15), width: 1.0),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.6),
@@ -327,22 +305,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: TvTheme.biliPink.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${playerState.currentIndex + 1}/${feedState.videos.length}',
-                  style: const TextStyle(
-                    color: TvTheme.biliPink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
                 child: Text(

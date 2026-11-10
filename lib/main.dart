@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dpad/dpad.dart';
 import 'package:media_kit/media_kit.dart';
 
 import 'core/services/codec_capability_service.dart';
 import 'core/services/display_capability_service.dart';
+import 'core/services/tv_focus_tracker.dart';
+import 'core/services/tv_log_service.dart';
 import 'core/storage/storage_service.dart';
 import 'core/theme/tv_theme.dart';
 import 'features/main/presentation/providers/nav_rail_focus_provider.dart';
@@ -13,6 +16,8 @@ import 'widgets/tv_debug_remote_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await TvLogService.init();
+  TvFocusTracker.init();
   MediaKit.ensureInitialized();
 
   final storageService = await StorageService.init();
@@ -49,8 +54,7 @@ class BiliTvApp extends ConsumerWidget {
           // 全局边缘阻挡处理：内容区向上到达边界无处可走时，自动将遥控器焦点平滑切回顶部导航栏
           onBlockedMove: (direction) {
             if (direction == TraversalDirection.up) {
-              final path =
-                  router.routerDelegate.currentConfiguration.uri.path;
+              final path = router.routerDelegate.currentConfiguration.uri.path;
               // 全屏独立播放器等严禁切回顶部导轨，杜绝播放器内按上键被盗走焦点
               if (!path.startsWith('/player') &&
                   !path.startsWith('/bangumi/player') &&
@@ -67,20 +71,34 @@ class BiliTvApp extends ConsumerWidget {
                 width: 2.0,
                 borderRadius: BorderRadius.all(Radius.circular(12)),
               ),
-              DpadGlowEffect(
-                color: Color(0x4000AEEC),
-                blurRadius: 20.0,
-              ),
+              DpadGlowEffect(color: Color(0x4000AEEC), blurRadius: 20.0),
             ],
             scrollPadding: 54.0,
             scrollDuration: Duration(milliseconds: 220),
             scrollCurve: Curves.easeOutCubic,
           ),
-        )(
-          context,
-          TvDebugRemoteOverlay(child: child ?? const SizedBox.shrink()),
-        );
+          onBack: _handleBack,
+          keySet: DpadKeySet(
+            menu: [LogicalKeyboardKey.keyF, ...DpadKeySet.defaultMenu],
+            select: [...DpadKeySet.defaultSelect],
+            back: [...DpadKeySet.defaultBack],
+            up: [LogicalKeyboardKey.keyW, ...DpadKeySet.defaultUp],
+            left: [LogicalKeyboardKey.keyA, ...DpadKeySet.defaultLeft],
+            down: [LogicalKeyboardKey.keyS, ...DpadKeySet.defaultDown],
+            right: [LogicalKeyboardKey.keyD, ...DpadKeySet.defaultRight],
+          ),
+          onFocusChange: (node) {
+            if (node != null) {
+              SystemSound.play(SystemSoundType.click);
+            }
+            TvFocusTracker.logFocus(node);
+          },
+        )(context, TvDebugRemoteOverlay(child: child ?? const SizedBox.shrink()));
       },
     );
   }
+}
+
+bool _handleBack() {
+  return true;
 }
