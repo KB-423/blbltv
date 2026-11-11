@@ -10,7 +10,8 @@ part 'generated/playback_session.freezed.dart';
 @freezed
 abstract class PlaybackSession with _$PlaybackSession {
   const factory PlaybackSession({
-    required String sessionId, // 会话唯一ID (如 'recommend', 'bangumi_123', 'player_BVxxx')
+    required String sessionId, // 会话唯一ID (如 'recommend', 'popular', 'channel', 'player_BVxxx')
+    @Default('') String ownerId, // 所有权组件标识 (如 'recommend', 'popular', 'channel', 'detail_player')
     @Default([]) List<VideoItemModel> playlist, // 播放列表
     @Default(0) int currentIndex, // 当前播放项索引
     VideoItemModel? currentVideo, // 当前视频实体
@@ -21,6 +22,8 @@ abstract class PlaybackSession with _$PlaybackSession {
     @Default(Duration.zero) Duration duration, // 视频总时长
     Uint8List? lastFrameBytes, // 切走瞬间截取的最后一帧冻结快照数据 (用于切回时 0ms 黑屏过渡)
     @Default(80) int quality, // 当前画质 QN
+    @Default(1.0) double speed, // 播放倍速
     @Default(false) bool isLive, // 是否为直播流
+    @Default({}) Map<String, String> httpHeaders, // 自定义请求头
   }) = _PlaybackSession;
 }

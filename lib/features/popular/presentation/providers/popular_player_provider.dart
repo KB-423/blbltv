@@ -88,7 +88,7 @@ class PopularPlayerNotifier extends Notifier<RecommendPlayerState> {
       if (ref.mounted) {
         ref
             .read(globalPlayerManagerProvider.notifier)
-            .pauseAndCaptureCurrentSession();
+            .releasePlayer('popular');
       }
     } catch (_) {}
   }
@@ -309,6 +309,7 @@ class PopularPlayerNotifier extends Notifier<RecommendPlayerState> {
 
     final session = PlaybackSession(
       sessionId: 'popular_${state.currentVideo?.bvid ?? ""}',
+      ownerId: 'popular',
       playlist: ref.read(popularFeedProvider).videos,
       currentIndex: state.currentIndex,
       currentVideo: state.currentVideo,
@@ -319,7 +320,11 @@ class PopularPlayerNotifier extends Notifier<RecommendPlayerState> {
       quality: targetQn,
     );
 
-    await globalManager.activateSession(session, autoPlay: true);
+    await globalManager.claimPlayer(
+      ownerId: 'popular',
+      session: session,
+      autoPlay: true,
+    );
 
     bool isWaitingInitialSeek = startPosition > Duration.zero;
 
@@ -376,15 +381,11 @@ class PopularPlayerNotifier extends Notifier<RecommendPlayerState> {
   }
 
   void togglePlay() {
-    _player?.playOrPause();
+    ref.read(globalPlayerManagerProvider.notifier).togglePlay();
   }
 
   void seekTo(Duration target) {
-    final maxDur = state.duration;
-    final safeTarget = target < Duration.zero
-        ? Duration.zero
-        : (maxDur > Duration.zero && target > maxDur ? maxDur : target);
-    _player?.seek(safeTarget);
+    ref.read(globalPlayerManagerProvider.notifier).seekTo(target);
   }
 }
 

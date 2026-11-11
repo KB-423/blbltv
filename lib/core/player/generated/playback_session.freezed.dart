@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PlaybackSession {
 
- String get sessionId; List<VideoItemModel> get playlist; int get currentIndex; VideoItemModel? get currentVideo; String? get videoUrl; String? get audioUrl; String? get coverUrl; Duration get lastPosition; Duration get duration; Uint8List? get lastFrameBytes; int get quality; bool get isLive;
+ String get sessionId; String get ownerId; List<VideoItemModel> get playlist; int get currentIndex; VideoItemModel? get currentVideo; String? get videoUrl; String? get audioUrl; String? get coverUrl; Duration get lastPosition; Duration get duration; Uint8List? get lastFrameBytes; int get quality; double get speed; bool get isLive; Map<String, String> get httpHeaders;
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -27,20 +27,20 @@ $PlaybackSessionCopyWith<PlaybackSession> get copyWith => _$PlaybackSessionCopyW
 @override
 bool operator ==(Object other) {
   final _this = this as PlaybackSession;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaybackSession&&(identical(other.sessionId, _this.sessionId) || other.sessionId == _this.sessionId)&&const DeepCollectionEquality().equals(other.playlist, _this.playlist)&&(identical(other.currentIndex, _this.currentIndex) || other.currentIndex == _this.currentIndex)&&(identical(other.currentVideo, _this.currentVideo) || other.currentVideo == _this.currentVideo)&&(identical(other.videoUrl, _this.videoUrl) || other.videoUrl == _this.videoUrl)&&(identical(other.audioUrl, _this.audioUrl) || other.audioUrl == _this.audioUrl)&&(identical(other.coverUrl, _this.coverUrl) || other.coverUrl == _this.coverUrl)&&(identical(other.lastPosition, _this.lastPosition) || other.lastPosition == _this.lastPosition)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&const DeepCollectionEquality().equals(other.lastFrameBytes, _this.lastFrameBytes)&&(identical(other.quality, _this.quality) || other.quality == _this.quality)&&(identical(other.isLive, _this.isLive) || other.isLive == _this.isLive));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PlaybackSession&&(identical(other.sessionId, _this.sessionId) || other.sessionId == _this.sessionId)&&(identical(other.ownerId, _this.ownerId) || other.ownerId == _this.ownerId)&&const DeepCollectionEquality().equals(other.playlist, _this.playlist)&&(identical(other.currentIndex, _this.currentIndex) || other.currentIndex == _this.currentIndex)&&(identical(other.currentVideo, _this.currentVideo) || other.currentVideo == _this.currentVideo)&&(identical(other.videoUrl, _this.videoUrl) || other.videoUrl == _this.videoUrl)&&(identical(other.audioUrl, _this.audioUrl) || other.audioUrl == _this.audioUrl)&&(identical(other.coverUrl, _this.coverUrl) || other.coverUrl == _this.coverUrl)&&(identical(other.lastPosition, _this.lastPosition) || other.lastPosition == _this.lastPosition)&&(identical(other.duration, _this.duration) || other.duration == _this.duration)&&const DeepCollectionEquality().equals(other.lastFrameBytes, _this.lastFrameBytes)&&(identical(other.quality, _this.quality) || other.quality == _this.quality)&&(identical(other.speed, _this.speed) || other.speed == _this.speed)&&(identical(other.isLive, _this.isLive) || other.isLive == _this.isLive)&&const DeepCollectionEquality().equals(other.httpHeaders, _this.httpHeaders));
 }
 
 
 @override
 int get hashCode {
   final _this = this as PlaybackSession;
-  return Object.hash(runtimeType,_this.sessionId,const DeepCollectionEquality().hash(_this.playlist),_this.currentIndex,_this.currentVideo,_this.videoUrl,_this.audioUrl,_this.coverUrl,_this.lastPosition,_this.duration,const DeepCollectionEquality().hash(_this.lastFrameBytes),_this.quality,_this.isLive);
+  return Object.hash(runtimeType,_this.sessionId,_this.ownerId,const DeepCollectionEquality().hash(_this.playlist),_this.currentIndex,_this.currentVideo,_this.videoUrl,_this.audioUrl,_this.coverUrl,_this.lastPosition,_this.duration,const DeepCollectionEquality().hash(_this.lastFrameBytes),_this.quality,_this.speed,_this.isLive,const DeepCollectionEquality().hash(_this.httpHeaders));
 }
 
 @override
 String toString() {
   final _this = this as PlaybackSession;
-  return 'PlaybackSession(sessionId: ${_this.sessionId}, playlist: ${_this.playlist}, currentIndex: ${_this.currentIndex}, currentVideo: ${_this.currentVideo}, videoUrl: ${_this.videoUrl}, audioUrl: ${_this.audioUrl}, coverUrl: ${_this.coverUrl}, lastPosition: ${_this.lastPosition}, duration: ${_this.duration}, lastFrameBytes: ${_this.lastFrameBytes}, quality: ${_this.quality}, isLive: ${_this.isLive})';
+  return 'PlaybackSession(sessionId: ${_this.sessionId}, ownerId: ${_this.ownerId}, playlist: ${_this.playlist}, currentIndex: ${_this.currentIndex}, currentVideo: ${_this.currentVideo}, videoUrl: ${_this.videoUrl}, audioUrl: ${_this.audioUrl}, coverUrl: ${_this.coverUrl}, lastPosition: ${_this.lastPosition}, duration: ${_this.duration}, lastFrameBytes: ${_this.lastFrameBytes}, quality: ${_this.quality}, speed: ${_this.speed}, isLive: ${_this.isLive}, httpHeaders: ${_this.httpHeaders})';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $PlaybackSessionCopyWith<$Res>  {
   factory $PlaybackSessionCopyWith(PlaybackSession value, $Res Function(PlaybackSession) _then) = _$PlaybackSessionCopyWithImpl;
 @useResult
 $Res call({
- String sessionId, List<VideoItemModel> playlist, int currentIndex, VideoItemModel? currentVideo, String? videoUrl, String? audioUrl, String? coverUrl, Duration lastPosition, Duration duration, Uint8List? lastFrameBytes, int quality, bool isLive
+ String sessionId, String ownerId, List<VideoItemModel> playlist, int currentIndex, VideoItemModel? currentVideo, String? videoUrl, String? audioUrl, String? coverUrl, Duration lastPosition, Duration duration, Uint8List? lastFrameBytes, int quality, double speed, bool isLive, Map<String, String> httpHeaders
 });
 
 
@@ -68,9 +68,10 @@ class _$PlaybackSessionCopyWithImpl<$Res>
 
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? sessionId = null,Object? playlist = null,Object? currentIndex = null,Object? currentVideo = freezed,Object? videoUrl = freezed,Object? audioUrl = freezed,Object? coverUrl = freezed,Object? lastPosition = null,Object? duration = null,Object? lastFrameBytes = freezed,Object? quality = null,Object? isLive = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? sessionId = null,Object? ownerId = null,Object? playlist = null,Object? currentIndex = null,Object? currentVideo = freezed,Object? videoUrl = freezed,Object? audioUrl = freezed,Object? coverUrl = freezed,Object? lastPosition = null,Object? duration = null,Object? lastFrameBytes = freezed,Object? quality = null,Object? speed = null,Object? isLive = null,Object? httpHeaders = null,}) {
   return _then(PlaybackSession(
 sessionId: null == sessionId ? _self.sessionId : sessionId // ignore: cast_nullable_to_non_nullable
+as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
 as String,playlist: null == playlist ? _self.playlist : playlist // ignore: cast_nullable_to_non_nullable
 as List<VideoItemModel>,currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
 as int,currentVideo: freezed == currentVideo ? _self.currentVideo : currentVideo // ignore: cast_nullable_to_non_nullable
@@ -81,8 +82,10 @@ as String?,lastPosition: null == lastPosition ? _self.lastPosition : lastPositio
 as Duration,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as Duration,lastFrameBytes: freezed == lastFrameBytes ? _self.lastFrameBytes : lastFrameBytes // ignore: cast_nullable_to_non_nullable
 as Uint8List?,quality: null == quality ? _self.quality : quality // ignore: cast_nullable_to_non_nullable
-as int,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
-as bool,
+as int,speed: null == speed ? _self.speed : speed // ignore: cast_nullable_to_non_nullable
+as double,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
+as bool,httpHeaders: null == httpHeaders ? _self.httpHeaders : httpHeaders // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,
   ));
 }
 /// Create a copy of PlaybackSession
@@ -179,10 +182,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sessionId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  bool isLive)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String sessionId,  String ownerId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  double speed,  bool isLive,  Map<String, String> httpHeaders)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PlaybackSession() when $default != null:
-return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.isLive);case _:
+return $default(_that.sessionId,_that.ownerId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.speed,_that.isLive,_that.httpHeaders);case _:
   return orElse();
 
 }
@@ -200,10 +203,10 @@ return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentV
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sessionId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  bool isLive)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String sessionId,  String ownerId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  double speed,  bool isLive,  Map<String, String> httpHeaders)  $default,) {final _that = this;
 switch (_that) {
 case _PlaybackSession():
-return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.isLive);case _:
+return $default(_that.sessionId,_that.ownerId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.speed,_that.isLive,_that.httpHeaders);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -220,10 +223,10 @@ return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentV
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sessionId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  bool isLive)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String sessionId,  String ownerId,  List<VideoItemModel> playlist,  int currentIndex,  VideoItemModel? currentVideo,  String? videoUrl,  String? audioUrl,  String? coverUrl,  Duration lastPosition,  Duration duration,  Uint8List? lastFrameBytes,  int quality,  double speed,  bool isLive,  Map<String, String> httpHeaders)?  $default,) {final _that = this;
 switch (_that) {
 case _PlaybackSession() when $default != null:
-return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.isLive);case _:
+return $default(_that.sessionId,_that.ownerId,_that.playlist,_that.currentIndex,_that.currentVideo,_that.videoUrl,_that.audioUrl,_that.coverUrl,_that.lastPosition,_that.duration,_that.lastFrameBytes,_that.quality,_that.speed,_that.isLive,_that.httpHeaders);case _:
   return null;
 
 }
@@ -235,10 +238,11 @@ return $default(_that.sessionId,_that.playlist,_that.currentIndex,_that.currentV
 
 
 class _PlaybackSession implements PlaybackSession {
-  const _PlaybackSession({required this.sessionId,  List<VideoItemModel> playlist = const [], this.currentIndex = 0, this.currentVideo, this.videoUrl, this.audioUrl, this.coverUrl, this.lastPosition = Duration.zero, this.duration = Duration.zero, this.lastFrameBytes, this.quality = 80, this.isLive = false}): _playlist = playlist;
+  const _PlaybackSession({required this.sessionId, this.ownerId = '',  List<VideoItemModel> playlist = const [], this.currentIndex = 0, this.currentVideo, this.videoUrl, this.audioUrl, this.coverUrl, this.lastPosition = Duration.zero, this.duration = Duration.zero, this.lastFrameBytes, this.quality = 80, this.speed = 1.0, this.isLive = false,  Map<String, String> httpHeaders = const {}}): _playlist = playlist,_httpHeaders = httpHeaders;
   
 
 @override final  String sessionId;
+@override@JsonKey() final  String ownerId;
  final  List<VideoItemModel> _playlist;
 @override@JsonKey() List<VideoItemModel> get playlist {
   if (_playlist is EqualUnmodifiableListView) return _playlist;
@@ -255,7 +259,15 @@ class _PlaybackSession implements PlaybackSession {
 @override@JsonKey() final  Duration duration;
 @override final  Uint8List? lastFrameBytes;
 @override@JsonKey() final  int quality;
+@override@JsonKey() final  double speed;
 @override@JsonKey() final  bool isLive;
+ final  Map<String, String> _httpHeaders;
+@override@JsonKey() Map<String, String> get httpHeaders {
+  if (_httpHeaders is EqualUnmodifiableMapView) return _httpHeaders;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(_httpHeaders);
+}
+
 
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
@@ -267,18 +279,18 @@ _$PlaybackSessionCopyWith<_PlaybackSession> get copyWith => __$PlaybackSessionCo
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaybackSession&&(identical(other.sessionId, sessionId) || other.sessionId == sessionId)&&const DeepCollectionEquality().equals(other.playlist, _playlist)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.currentVideo, currentVideo) || other.currentVideo == currentVideo)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.audioUrl, audioUrl) || other.audioUrl == audioUrl)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.lastPosition, lastPosition) || other.lastPosition == lastPosition)&&(identical(other.duration, duration) || other.duration == duration)&&const DeepCollectionEquality().equals(other.lastFrameBytes, lastFrameBytes)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.isLive, isLive) || other.isLive == isLive));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PlaybackSession&&(identical(other.sessionId, sessionId) || other.sessionId == sessionId)&&(identical(other.ownerId, ownerId) || other.ownerId == ownerId)&&const DeepCollectionEquality().equals(other.playlist, _playlist)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&(identical(other.currentVideo, currentVideo) || other.currentVideo == currentVideo)&&(identical(other.videoUrl, videoUrl) || other.videoUrl == videoUrl)&&(identical(other.audioUrl, audioUrl) || other.audioUrl == audioUrl)&&(identical(other.coverUrl, coverUrl) || other.coverUrl == coverUrl)&&(identical(other.lastPosition, lastPosition) || other.lastPosition == lastPosition)&&(identical(other.duration, duration) || other.duration == duration)&&const DeepCollectionEquality().equals(other.lastFrameBytes, lastFrameBytes)&&(identical(other.quality, quality) || other.quality == quality)&&(identical(other.speed, speed) || other.speed == speed)&&(identical(other.isLive, isLive) || other.isLive == isLive)&&const DeepCollectionEquality().equals(other.httpHeaders, _httpHeaders));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,sessionId,const DeepCollectionEquality().hash(_playlist),currentIndex,currentVideo,videoUrl,audioUrl,coverUrl,lastPosition,duration,const DeepCollectionEquality().hash(lastFrameBytes),quality,isLive);
+    return Object.hash(runtimeType,sessionId,ownerId,const DeepCollectionEquality().hash(_playlist),currentIndex,currentVideo,videoUrl,audioUrl,coverUrl,lastPosition,duration,const DeepCollectionEquality().hash(lastFrameBytes),quality,speed,isLive,const DeepCollectionEquality().hash(_httpHeaders));
 }
 
 @override
 String toString() {
-    return 'PlaybackSession(sessionId: $sessionId, playlist: $playlist, currentIndex: $currentIndex, currentVideo: $currentVideo, videoUrl: $videoUrl, audioUrl: $audioUrl, coverUrl: $coverUrl, lastPosition: $lastPosition, duration: $duration, lastFrameBytes: $lastFrameBytes, quality: $quality, isLive: $isLive)';
+    return 'PlaybackSession(sessionId: $sessionId, ownerId: $ownerId, playlist: $playlist, currentIndex: $currentIndex, currentVideo: $currentVideo, videoUrl: $videoUrl, audioUrl: $audioUrl, coverUrl: $coverUrl, lastPosition: $lastPosition, duration: $duration, lastFrameBytes: $lastFrameBytes, quality: $quality, speed: $speed, isLive: $isLive, httpHeaders: $httpHeaders)';
 }
 
 
@@ -289,7 +301,7 @@ abstract mixin class _$PlaybackSessionCopyWith<$Res> implements $PlaybackSession
   factory _$PlaybackSessionCopyWith(_PlaybackSession value, $Res Function(_PlaybackSession) _then) = __$PlaybackSessionCopyWithImpl;
 @override @useResult
 $Res call({
- String sessionId, List<VideoItemModel> playlist, int currentIndex, VideoItemModel? currentVideo, String? videoUrl, String? audioUrl, String? coverUrl, Duration lastPosition, Duration duration, Uint8List? lastFrameBytes, int quality, bool isLive
+ String sessionId, String ownerId, List<VideoItemModel> playlist, int currentIndex, VideoItemModel? currentVideo, String? videoUrl, String? audioUrl, String? coverUrl, Duration lastPosition, Duration duration, Uint8List? lastFrameBytes, int quality, double speed, bool isLive, Map<String, String> httpHeaders
 });
 
 
@@ -306,9 +318,10 @@ class __$PlaybackSessionCopyWithImpl<$Res>
 
 /// Create a copy of PlaybackSession
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? sessionId = null,Object? playlist = null,Object? currentIndex = null,Object? currentVideo = freezed,Object? videoUrl = freezed,Object? audioUrl = freezed,Object? coverUrl = freezed,Object? lastPosition = null,Object? duration = null,Object? lastFrameBytes = freezed,Object? quality = null,Object? isLive = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? sessionId = null,Object? ownerId = null,Object? playlist = null,Object? currentIndex = null,Object? currentVideo = freezed,Object? videoUrl = freezed,Object? audioUrl = freezed,Object? coverUrl = freezed,Object? lastPosition = null,Object? duration = null,Object? lastFrameBytes = freezed,Object? quality = null,Object? speed = null,Object? isLive = null,Object? httpHeaders = null,}) {
   return _then(_PlaybackSession(
 sessionId: null == sessionId ? _self.sessionId : sessionId // ignore: cast_nullable_to_non_nullable
+as String,ownerId: null == ownerId ? _self.ownerId : ownerId // ignore: cast_nullable_to_non_nullable
 as String,playlist: null == playlist ? _self._playlist : playlist // ignore: cast_nullable_to_non_nullable
 as List<VideoItemModel>,currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
 as int,currentVideo: freezed == currentVideo ? _self.currentVideo : currentVideo // ignore: cast_nullable_to_non_nullable
@@ -319,8 +332,10 @@ as String?,lastPosition: null == lastPosition ? _self.lastPosition : lastPositio
 as Duration,duration: null == duration ? _self.duration : duration // ignore: cast_nullable_to_non_nullable
 as Duration,lastFrameBytes: freezed == lastFrameBytes ? _self.lastFrameBytes : lastFrameBytes // ignore: cast_nullable_to_non_nullable
 as Uint8List?,quality: null == quality ? _self.quality : quality // ignore: cast_nullable_to_non_nullable
-as int,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
-as bool,
+as int,speed: null == speed ? _self.speed : speed // ignore: cast_nullable_to_non_nullable
+as double,isLive: null == isLive ? _self.isLive : isLive // ignore: cast_nullable_to_non_nullable
+as bool,httpHeaders: null == httpHeaders ? _self._httpHeaders : httpHeaders // ignore: cast_nullable_to_non_nullable
+as Map<String, String>,
   ));
 }
 

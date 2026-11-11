@@ -49,6 +49,9 @@ class _TvLiveScreenState extends ConsumerState<TvLiveScreen> {
   void dispose() {
     _scrollController.dispose();
     _firstCardFocusNode.dispose();
+    try {
+      ref.read(topBarDisplayModeProvider.notifier).showFull();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -303,8 +306,19 @@ class _TvLiveScreenState extends ConsumerState<TvLiveScreen> {
                     return false;
                   },
                   onFocusChange: (focused) {
-                    if (focused && isLastRow) {
-                      ref.read(liveFeedProvider.notifier).loadMore();
+                    if (focused) {
+                      if (index >= crossAxisCount) {
+                        ref
+                            .read(topBarDisplayModeProvider.notifier)
+                            .showCompact();
+                      } else {
+                        ref
+                            .read(topBarDisplayModeProvider.notifier)
+                            .showFull();
+                      }
+                      if (isLastRow) {
+                        ref.read(liveFeedProvider.notifier).loadMore();
+                      }
                     }
                   },
                 );

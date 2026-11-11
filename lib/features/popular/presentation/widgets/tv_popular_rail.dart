@@ -147,6 +147,16 @@ class _TvPopularRailState extends ConsumerState<TvPopularRail> {
                       if (focused) {
                         notifier.resetIdleTimer();
                         notifier.scheduleHoverPlay(index);
+                        // 当焦点向下移出第 0 项 (进入第 2 个及以后) 时，通知顶部栏精简为图标模式
+                        if (index > 0) {
+                          ref
+                              .read(topBarDisplayModeProvider.notifier)
+                              .showCompact();
+                        } else {
+                          ref
+                              .read(topBarDisplayModeProvider.notifier)
+                              .showFull();
+                        }
                       } else {
                         notifier.cancelHoverPlay();
                       }

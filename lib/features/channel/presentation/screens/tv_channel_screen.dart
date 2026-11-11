@@ -12,10 +12,10 @@ import '../../data/models/channel_item_model.dart';
 import '../providers/channel_provider.dart';
 
 /// TV 频道与细分专区卡片屏幕 (全量真实官方接口，零Mock)
-/// 架构设计：
-/// 1. 左侧板块：拉取并展示一级主频道与细分频道（子分区），支持 D-Pad 上下切换与左右联动
-/// 2. 右侧板块：对应细分频道的视频选择卡片网格 (4列)
-/// 3. 焦点流转与隔离：主频道 -> 细分频道 -> 视频卡片，按返回键分级向左自愈回退
+/// 架构设计与寻焦流转：
+/// 1. 左侧一级主频道列 (列1) <==> 二级细分频道列 (列2) <==> 右侧卡片网格 (列3)
+/// 2. 向左/向右双向丝滑流转：从网格向左回退到细分频道，从细分频道向左进入一级主频道选择
+/// 3. 顶栏联动：进入网格第二行 (index >= 4) 时通知顶栏进入精简收起模式，回首行或左侧面板时恢复展开
 class TvChannelScreen extends ConsumerStatefulWidget {
   const TvChannelScreen({super.key});
 
@@ -24,10 +24,8 @@ class TvChannelScreen extends ConsumerStatefulWidget {
 }
 
 class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
-  final FocusNode _firstMainFocusNode =
-      FocusNode(debugLabel: 'ChannelFirstMainCategory');
-  final FocusNode _firstSubFocusNode =
-      FocusNode(debugLabel: 'ChannelFirstSubCategory');
+  final Map<int, FocusNode> _mainFocusNodes = {};
+  final Map<int, FocusNode> _subFocusNodes = {};
   final FocusNode _firstCardFocusNode =
       FocusNode(debugLabel: 'ChannelFirstVideoCard');
 
@@ -37,15 +35,40 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
 
   bool _isGridFocused = false;
   bool _isSubFocused = false;
+  bool _isMainFocused = false;
+
+  FocusNode _getMainFocusNode(int index) {
+    return _mainFocusNodes.putIfAbsent(
+      index,
+      () => FocusNode(debugLabel: 'ChannelMainCategory_$index'),
+    );
+  }
+
+  FocusNode _getSubFocusNode(int index) {
+    return _subFocusNodes.putIfAbsent(
+      index,
+      () => FocusNode(debugLabel: 'ChannelSubCategory_$index'),
+    );
+  }
 
   @override
   void dispose() {
-    _firstMainFocusNode.dispose();
-    _firstSubFocusNode.dispose();
+    for (final node in _mainFocusNodes.values) {
+      node.dispose();
+    }
+    for (final node in _subFocusNodes.values) {
+      node.dispose();
+    }
     _firstCardFocusNode.dispose();
     _mainScrollController.dispose();
     _subScrollController.dispose();
     _gridScrollController.dispose();
+
+    // 离开页面时恢复顶栏全显
+    try {
+      ref.read(topBarDisplayModeProvider.notifier).showFull();
+    } catch (_) {}
+
     super.dispose();
   }
 
@@ -53,20 +76,25 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
     if (!BackNavigationDebounce.shouldHandle()) return;
 
     final navService = ref.read(navRailFocusServiceProvider);
+    final state = ref.read(channelProvider);
 
     // 1. 若当前在右侧视频卡片网格，返回键回到左侧细分频道列表
     if (_isGridFocused) {
-      if (_firstSubFocusNode.canRequestFocus) {
-        _firstSubFocusNode.requestFocus();
+      final subNode = _getSubFocusNode(state.selectedSubIndex);
+      if (subNode.canRequestFocus) {
+        subNode.requestFocus();
       }
+      ref.read(topBarDisplayModeProvider.notifier).showFull();
       return;
     }
 
     // 2. 若当前在细分频道列表，返回键回到一级主频道列表
     if (_isSubFocused) {
-      if (_firstMainFocusNode.canRequestFocus) {
-        _firstMainFocusNode.requestFocus();
+      final mainNode = _getMainFocusNode(state.selectedMainIndex);
+      if (mainNode.canRequestFocus) {
+        mainNode.requestFocus();
       }
+      ref.read(topBarDisplayModeProvider.notifier).showFull();
       return;
     }
 
@@ -85,8 +113,10 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
     final notifier = ref.read(channelProvider.notifier);
     final navService = ref.read(navRailFocusServiceProvider);
 
-    final canPopToShell =
-        !_isGridFocused && !_isSubFocused && navService.isNavRailFocused;
+    final canPopToShell = !_isGridFocused &&
+        !_isSubFocused &&
+        !_isMainFocused &&
+        navService.isNavRailFocused;
 
     return PopScope(
       canPop: canPopToShell,
@@ -161,20 +191,44 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
                 itemBuilder: (context, index) {
                   final ch = mainChannels[index];
                   final isSelected = index == state.selectedMainIndex;
+                  final node = _getMainFocusNode(index);
 
                   return DpadFocusable(
-                    focusNode: index == 0 ? _firstMainFocusNode : null,
+                    focusNode: node,
                     onFocusChange: (focused) {
                       if (focused) {
+                        setState(() {
+                          _isMainFocused = true;
+                          _isSubFocused = false;
+                          _isGridFocused = false;
+                        });
+                        ref.read(topBarDisplayModeProvider.notifier).showFull();
                         notifier.selectMainChannel(index);
                       }
                     },
-                    onSelect: () => notifier.selectMainChannel(index),
+                    onSelect: () {
+                      notifier.selectMainChannel(index);
+                      // 按确定键直接聚焦至对应细分频道
+                      final subNode = _getSubFocusNode(state.selectedSubIndex);
+                      if (subNode.canRequestFocus) {
+                        subNode.requestFocus();
+                      }
+                    },
                     onDirection: (direction) {
+                      // 向左：平滑交接回顶部分类栏
                       if (direction == TraversalDirection.left) {
+                        ref.read(topBarDisplayModeProvider.notifier).showFull();
                         return ref
                             .read(navRailFocusServiceProvider)
                             .focusSelected();
+                      }
+                      // 向右：进入细分频道列表
+                      if (direction == TraversalDirection.right) {
+                        final subNode = _getSubFocusNode(state.selectedSubIndex);
+                        if (subNode.canRequestFocus) {
+                          subNode.requestFocus();
+                          return true;
+                        }
                       }
                       return false;
                     },
@@ -266,19 +320,47 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
                 itemBuilder: (context, index) {
                   final sub = subChannels[index];
                   final isSelected = index == state.selectedSubIndex;
+                  final node = _getSubFocusNode(index);
 
                   return DpadFocusable(
                     autofocus: index == 0 && state.selectedMainIndex == 0,
-                    focusNode: index == 0 ? _firstSubFocusNode : null,
+                    focusNode: node,
                     onFocusChange: (focused) {
-                      setState(() {
-                        _isSubFocused = focused;
-                      });
                       if (focused) {
+                        setState(() {
+                          _isSubFocused = true;
+                          _isMainFocused = false;
+                          _isGridFocused = false;
+                        });
+                        ref.read(topBarDisplayModeProvider.notifier).showFull();
                         notifier.selectSubChannel(index);
                       }
                     },
-                    onSelect: () => notifier.selectSubChannel(index),
+                    onSelect: () {
+                      notifier.selectSubChannel(index);
+                      // 按确定键直接进入右侧卡片网格
+                      if (_firstCardFocusNode.canRequestFocus) {
+                        _firstCardFocusNode.requestFocus();
+                      }
+                    },
+                    onDirection: (direction) {
+                      // 向左：关键修复！顺利进入左侧一级主频道选择
+                      if (direction == TraversalDirection.left) {
+                        final mainNode = _getMainFocusNode(state.selectedMainIndex);
+                        if (mainNode.canRequestFocus) {
+                          mainNode.requestFocus();
+                          return true;
+                        }
+                      }
+                      // 向右：顺利进入右侧视频卡片网格
+                      if (direction == TraversalDirection.right) {
+                        if (_firstCardFocusNode.canRequestFocus) {
+                          _firstCardFocusNode.requestFocus();
+                          return true;
+                        }
+                      }
+                      return false;
+                    },
                     child: const SizedBox.shrink(),
                     builder: (context, focusState, child) {
                       final isFocused = focusState.focused;
@@ -428,17 +510,31 @@ class _TvChannelScreenState extends ConsumerState<TvChannelScreen> {
                       video: video,
                       focusNode: index == 0 ? _firstCardFocusNode : null,
                       onFocusChange: (focused) {
-                        if (focused != _isGridFocused) {
+                        if (focused) {
                           setState(() {
-                            _isGridFocused = focused;
+                            _isGridFocused = true;
+                            _isSubFocused = false;
+                            _isMainFocused = false;
                           });
+
+                          // 当焦点在第 2 行及以后 (index >= 4) 时，顶栏收起为精简模式；在第 1 行时恢复全显
+                          if (index >= 4) {
+                            ref
+                                .read(topBarDisplayModeProvider.notifier)
+                                .showCompact();
+                          } else {
+                            ref
+                                .read(topBarDisplayModeProvider.notifier)
+                                .showFull();
+                          }
                         }
                       },
                       onDirection: (direction) {
-                        // 在第 0 列按向左方向键时，平滑交接回左侧细分频道列表
+                        // 在第 0 列按向左方向键时，关键修复！平滑交接回左侧细分频道列表当前项
                         if (direction == TraversalDirection.left && isCol0) {
-                          if (_firstSubFocusNode.canRequestFocus) {
-                            _firstSubFocusNode.requestFocus();
+                          final subNode = _getSubFocusNode(state.selectedSubIndex);
+                          if (subNode.canRequestFocus) {
+                            subNode.requestFocus();
                             return true;
                           }
                         }

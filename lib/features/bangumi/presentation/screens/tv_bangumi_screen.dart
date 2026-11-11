@@ -48,6 +48,9 @@ class _TvBangumiScreenState extends ConsumerState<TvBangumiScreen> {
   void dispose() {
     _scrollController.dispose();
     _firstCardFocusNode.dispose();
+    try {
+      ref.read(topBarDisplayModeProvider.notifier).showFull();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -302,8 +305,19 @@ class _TvBangumiScreenState extends ConsumerState<TvBangumiScreen> {
                     return false;
                   },
                   onFocusChange: (focused) {
-                    if (focused && isLastRow) {
-                      ref.read(bangumiFeedProvider.notifier).loadMore();
+                    if (focused) {
+                      if (index >= crossAxisCount) {
+                        ref
+                            .read(topBarDisplayModeProvider.notifier)
+                            .showCompact();
+                      } else {
+                        ref
+                            .read(topBarDisplayModeProvider.notifier)
+                            .showFull();
+                      }
+                      if (isLastRow) {
+                        ref.read(bangumiFeedProvider.notifier).loadMore();
+                      }
                     }
                   },
                 );

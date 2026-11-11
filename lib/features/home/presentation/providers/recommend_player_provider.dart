@@ -104,7 +104,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       if (ref.mounted) {
         ref
             .read(globalPlayerManagerProvider.notifier)
-            .pauseAndCaptureCurrentSession();
+            .releasePlayer('recommend');
       }
     } catch (_) {}
   }
@@ -430,6 +430,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
 
     final session = PlaybackSession(
       sessionId: 'recommend_${state.currentVideo?.bvid ?? ""}',
+      ownerId: 'recommend',
       playlist: ref.read(homeFeedProvider).videos,
       currentIndex: state.currentIndex,
       currentVideo: state.currentVideo,
@@ -440,7 +441,11 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
       quality: targetQn,
     );
 
-    await globalManager.activateSession(session, autoPlay: true);
+    await globalManager.claimPlayer(
+      ownerId: 'recommend',
+      session: session,
+      autoPlay: true,
+    );
 
     bool isWaitingInitialSeek = startPosition > Duration.zero;
 
@@ -512,16 +517,12 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
 
   /// 播放 / 暂停切换
   void togglePlay() {
-    _player?.playOrPause();
+    ref.read(globalPlayerManagerProvider.notifier).togglePlay();
   }
 
   /// 进度跳转 (Seek)
   void seekTo(Duration target) {
-    final maxDur = state.duration;
-    final safeTarget = target < Duration.zero
-        ? Duration.zero
-        : (maxDur > Duration.zero && target > maxDur ? maxDur : target);
-    _player?.seek(safeTarget);
+    ref.read(globalPlayerManagerProvider.notifier).seekTo(target);
   }
 
   void seekForward({int seconds = 10}) {
