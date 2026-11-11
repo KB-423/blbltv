@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart' hide PlayerState;
 import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../../../core/constants/api_constants.dart';
+import '../../../../core/player/global_player_manager.dart';
+import '../../../../core/player/playback_session.dart';
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/utils/tv_player_engine_helper.dart';
 import '../../../../models/video/video_item_model.dart';
 import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
 import '../../../player/data/repositories/player_repository.dart';
@@ -34,8 +34,16 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
   late final PlayerRepository _playerRepository;
   late final StorageService _storageService;
 
-  Player? get player => _player;
-  VideoController? get videoController => _videoController;
+  Player? get player =>
+      _player ??
+      (ref.mounted
+          ? ref.read(globalPlayerManagerProvider.notifier).player
+          : null);
+  VideoController? get videoController =>
+      _videoController ??
+      (ref.mounted
+          ? ref.read(globalPlayerManagerProvider.notifier).videoController
+          : null);
 
   @override
   RecommendPlayerState build() {
@@ -89,14 +97,14 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     _stopAndDispose();
   }
 
-  /// 瞬间静音并暂停，专用于退出路由触发的第 0 毫秒切断音频
+  /// 瞬间静音并暂停，专用于退出路由触发的第 0 毫秒切断音频与截取冻结快照
   void pauseAndStopAudio() {
     if (_isDisposed) return;
     try {
-      final p = _player;
-      if (p != null) {
-        p.setVolume(0).catchError((_) {});
-        p.pause().catchError((_) {});
+      if (ref.mounted) {
+        ref
+            .read(globalPlayerManagerProvider.notifier)
+            .pauseAndCaptureCurrentSession();
       }
     } catch (_) {}
   }
@@ -111,11 +119,16 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     _heartbeatTimer?.cancel();
     _cancelSubscriptions();
 
-    final p = _player;
+    try {
+      if (ref.mounted) {
+        ref
+            .read(globalPlayerManagerProvider.notifier)
+            .pauseAndCaptureCurrentSession();
+      }
+    } catch (_) {}
+
     _player = null;
     _videoController = null;
-
-    TvPlayerEngineHelper.safeDisposePlayer(p);
   }
 
   /// 向 B 站官方上报播放心跳进度，确保观看记录进入云端历史
@@ -395,7 +408,7 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
     }).catchError((_) {});
   }
 
-  /// 初始化/重置 MediaKit Player 引擎
+  /// 初始化/激活全局单例 Player 引擎与会话
   Future<void> _setupController(
     String videoUrl, {
     String audioUrl = '',
@@ -404,142 +417,87 @@ class RecommendPlayerNotifier extends Notifier<RecommendPlayerState> {
   }) async {
     if (_isDisposed) return;
 
-    final oldPlayer = _player;
-    _player = null;
-    _videoController = null;
     _cancelSubscriptions();
     _heartbeatTimer?.cancel();
 
-    if (oldPlayer != null) {
-      TvPlayerEngineHelper.safeDisposePlayer(oldPlayer);
+    final globalManager = ref.read(globalPlayerManagerProvider.notifier);
+    final player = globalManager.player;
+    final controller = globalManager.videoController;
+    _player = player;
+    _videoController = controller;
+
+    if (player == null) return;
+
+    final session = PlaybackSession(
+      sessionId: 'recommend_${state.currentVideo?.bvid ?? ""}',
+      playlist: ref.read(homeFeedProvider).videos,
+      currentIndex: state.currentIndex,
+      currentVideo: state.currentVideo,
+      videoUrl: videoUrl,
+      audioUrl: audioUrl,
+      coverUrl: state.currentVideo?.pic,
+      lastPosition: startPosition,
+      quality: targetQn,
+    );
+
+    await globalManager.activateSession(session, autoPlay: true);
+
+    bool isWaitingInitialSeek = startPosition > Duration.zero;
+
+    _posSub = player.stream.position.listen((pos) {
+      if (!_isDisposed && ref.mounted) {
+        if (isWaitingInitialSeek) {
+          if (pos == Duration.zero) return;
+          isWaitingInitialSeek = false;
+        }
+        state = state.copyWith(position: pos);
+      }
+    });
+
+    _durSub = player.stream.duration.listen((dur) {
+      if (!_isDisposed && ref.mounted && dur > Duration.zero) {
+        state = state.copyWith(duration: dur);
+      }
+    });
+
+    _playingSub = player.stream.playing.listen((isPlaying) {
+      if (!_isDisposed && ref.mounted) {
+        state = state.copyWith(isPlaying: isPlaying);
+      }
+    });
+
+    _bufferingSub = player.stream.buffering.listen((isBuffering) {
+      if (!_isDisposed && ref.mounted) {
+        state = state.copyWith(isBuffering: isBuffering);
+      }
+    });
+
+    _completedSub = player.stream.completed.listen((completed) {
+      if (!_isDisposed && ref.mounted && completed) {
+        _onPlaybackCompleted();
+      }
+    });
+
+    _errorSub = player.stream.error.listen((err) {
+      debugPrint('[RecommendPlayer] MediaKit 错误: $err');
+    });
+
+    // 设置播放速率
+    if (state.speed != 1.0) {
+      await player.setRate(state.speed);
     }
 
-    if (_isDisposed) return;
-
-    try {
-      final player = TvPlayerEngineHelper.createPlayer(
-        bufferSize: 128 * 1024 * 1024,
-      );
-      _player = player;
-
-      if (_isDisposed) {
-        TvPlayerEngineHelper.safeDisposePlayer(player);
-        _player = null;
-        return;
-      }
-
-      final dynamic platform = player.platform;
-
-      // 配置 MediaCodec 硬解直通与着色器调优
-      await TvPlayerEngineHelper.configurePlatformProperties(
-        platform,
-        audioUrl: audioUrl,
-        isLive: false,
-      );
-
-      if (_isDisposed) {
-        TvPlayerEngineHelper.safeDisposePlayer(player);
-        _player = null;
-        return;
-      }
-
-      final controller = TvPlayerEngineHelper.createVideoController(player);
-      _videoController = controller;
-
-      await TvPlayerEngineHelper.waitForSurfaceReady(controller);
-
-      if (_isDisposed) {
-        TvPlayerEngineHelper.safeDisposePlayer(player);
-        _player = null;
-        _videoController = null;
-        return;
-      }
-
-      bool isWaitingInitialSeek = startPosition > Duration.zero;
-
-      _posSub = player.stream.position.listen((pos) {
-        if (!_isDisposed && ref.mounted) {
-          if (isWaitingInitialSeek) {
-            if (pos == Duration.zero) return;
-            isWaitingInitialSeek = false;
-          }
-          state = state.copyWith(position: pos);
-        }
-      });
-
-      _durSub = player.stream.duration.listen((dur) {
-        if (!_isDisposed && ref.mounted && dur > Duration.zero) {
-          state = state.copyWith(duration: dur);
-        }
-      });
-
-      _playingSub = player.stream.playing.listen((isPlaying) {
-        if (!_isDisposed && ref.mounted) {
-          state = state.copyWith(isPlaying: isPlaying);
-        }
-      });
-
-      _bufferingSub = player.stream.buffering.listen((isBuffering) {
-        if (!_isDisposed && ref.mounted) {
-          state = state.copyWith(isBuffering: isBuffering);
-        }
-      });
-
-      _completedSub = player.stream.completed.listen((completed) {
-        if (!_isDisposed && ref.mounted && completed) {
-          _onPlaybackCompleted();
-        }
-      });
-
-      _errorSub = player.stream.error.listen((err) {
-        debugPrint('[RecommendPlayer] MediaKit 错误: $err');
-      });
-
-      final media = Media(
-        videoUrl,
-        httpHeaders: const {
-          'Referer': ApiConstants.defaultReferer,
-          'User-Agent': ApiConstants.defaultUserAgent,
-        },
-        start: startPosition > Duration.zero ? startPosition : null,
-      );
-
-      await player.open(media, play: false);
-
-      if (_isDisposed) {
-        TvPlayerEngineHelper.safeDisposePlayer(player);
-        _player = null;
-        _videoController = null;
-        return;
-      }
-
-      // 设置播放速率
-      if (state.speed != 1.0) {
-        await player.setRate(state.speed);
-      }
-
-      await player.setVolume(100.0);
-      await player.play();
-
-      if (!_isDisposed && ref.mounted) {
-        state = state.copyWith(
-          isLoading: false,
-          isPlaying: true,
-          currentQn: targetQn,
-          error: null,
-        );
-
-        _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-          reportHistoryHeartbeat();
-        });
-      }
-    } catch (e) {
-      if (_isDisposed) return;
-      debugPrint('[RecommendPlayer] 初始化播放引擎异常: $e');
+    if (!_isDisposed && ref.mounted) {
       state = state.copyWith(
         isLoading: false,
-        error: '播放引擎初始化失败: $e',
+        isPlaying: true,
+        currentQn: targetQn,
+        error: null,
       );
+
+      _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+        reportHistoryHeartbeat();
+      });
     }
   }
 

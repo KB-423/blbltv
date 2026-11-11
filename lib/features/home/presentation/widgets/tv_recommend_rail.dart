@@ -73,19 +73,15 @@ class _TvRecommendRailState extends ConsumerState<TvRecommendRail> {
       return const SizedBox.shrink();
     }
 
-    final displayMode = ref.watch(topBarDisplayModeProvider);
-    final isCompact = displayMode == TopBarDisplayMode.compact;
-    final double topMargin = isCompact ? 64.0 : 118.0;
-
     return DpadRegion(
       enter: DpadEnterBehavior.restore,
       horizontalEdge: DpadEdgeBehavior.stop,
       verticalEdge: DpadEdgeBehavior.leave,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
+        duration: const Duration(milliseconds: 280),
         curve: Curves.easeOutCubic,
         width: 330,
-        margin: EdgeInsets.only(left: 36, top: topMargin, bottom: 28),
+        margin: const EdgeInsets.only(left: 36, top: 12, bottom: 28),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.black.withValues(alpha: 0.65),

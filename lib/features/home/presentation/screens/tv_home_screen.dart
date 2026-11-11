@@ -3,9 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../../../core/theme/tv_theme.dart';
 import '../../../../core/utils/back_navigation_debounce.dart';
 import '../../../../widgets/tv_status_view.dart';
 import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
@@ -142,14 +140,14 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
 
     if (feedState.isLoading && feedState.videos.isEmpty) {
       return const Scaffold(
-        backgroundColor: TvTheme.tvBackground,
+        backgroundColor: Colors.transparent,
         body: TvLoadingView(message: '正在为您推荐精彩内容...'),
       );
     }
 
     if (feedState.error != null && feedState.videos.isEmpty) {
       return Scaffold(
-        backgroundColor: TvTheme.tvBackground,
+        backgroundColor: Colors.transparent,
         body: TvErrorView(
           error: feedState.error!,
           onRetry: () => ref.read(homeFeedProvider.notifier).refresh(),
@@ -192,14 +190,11 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: TvTheme.tvBackground,
+        backgroundColor: Colors.transparent,
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // 1. 全屏背景视频播放器渲染层
-            _buildVideoLayer(playerState, notifier),
-
-            // 2. 纯享模式上下键即时切台按键监听节点 (无遮罩零延迟)
+            // 1. 纯享模式上下键即时切台按键监听节点 (无遮罩零延迟)
             if (playerState.isPurePlayback && !playerState.showControls)
               Positioned.fill(
                 child: Focus(
@@ -210,10 +205,10 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
                 ),
               ),
 
-            // 3. 上下键切台微型 HUD 指示
+            // 2. 上下键切台微型 HUD 指示
             _buildChannelHUD(playerState, feedState),
 
-            // 4. 左侧悬浮推荐列表导轨 (平滑淡入滑出 + 焦点隔离)
+            // 3. 左侧悬浮推荐列表导轨 (平滑淡入滑出 + 焦点隔离)
             Positioned(
               left: 0,
               top: 0,
@@ -233,7 +228,7 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
               ),
             ),
 
-            // 5. 全功能播放控制浮层 (OK 键呼出，进度条首焦，长按三连，合集露头)
+            // 4. 全功能播放控制浮层 (OK 键呼出，进度条首焦，长按三连，合集露头)
             if (playerState.showControls)
               TvRecommendControlOverlay(
                 onClose: notifier.closeControls,
@@ -246,30 +241,6 @@ class _TvHomeScreenState extends ConsumerState<TvHomeScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildVideoLayer(RecommendPlayerState playerState, RecommendPlayerNotifier notifier) {
-    final controller = notifier.videoController;
-    if (controller != null) {
-      return Video(controller: controller, controls: NoVideoControls, fit: BoxFit.cover);
-    }
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      color: Colors.black,
-      child: playerState.isLoading
-          ? const Center(
-              child: SizedBox(
-                width: 32,
-                height: 32,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white38),
-                ),
-              ),
-            )
-          : null,
     );
   }
 
