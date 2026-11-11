@@ -76,9 +76,17 @@ void main() {
         expect(mockPlatform.properties['scale'], 'bilinear');
         expect(mockPlatform.properties['deband'], 'no');
         expect(mockPlatform.properties['dither'], 'no');
+        expect(mockPlatform.properties['hdr-compute-peak'], 'auto');
       } else {
         expect(mockPlatform.properties['hwdec'], 'auto');
       }
+
+      // 验证全平台 HDR -> SDR 色调映射配置
+      expect(mockPlatform.properties['target-colorspace-hint'], 'no');
+      expect(mockPlatform.properties['target-prim'], 'bt.709');
+      expect(mockPlatform.properties['target-trc'], 'bt.1886');
+      expect(mockPlatform.properties['tone-mapping'], 'bt.2446a');
+      expect(mockPlatform.properties['gamut-mapping'], 'auto');
     });
 
     test('configurePlatformProperties for live applies appropriate live buffer constraints', () async {

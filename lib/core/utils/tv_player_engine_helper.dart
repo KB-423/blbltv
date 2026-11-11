@@ -9,7 +9,7 @@ import '../constants/api_constants.dart';
 /// TV 播放器底层引擎调优与硬件硬解适配助手
 /// 专为 Android TV 大屏（如联发科 Pentonic MT9655 / MT5877、晶晨 Amlogic、海思等 SOC）调优：
 /// 1. 强制启用 MediaCodec 直通硬件解码并解除格式白名单 (`hwdec=mediacodec`, `hwdec-codecs=all`)
-/// 2. 启用 mediacodec_embed 零拷贝原生 Surface 输出 (`vo=mediacodec_embed`)
+/// 2. 启用 GPU 渲染管线与工业级色调映射 (`vo=gpu`, `tone-mapping=bt.2446a`, `target-prim=bt.709`)，根除 HDR 发白褪色问题
 /// 3. 等待 Native Surface 完全挂载后再解码，杜绝 Surface 缺失降级为软解 Buffer 拷贝模式
 /// 4. 优化 Mali GPU 极速渲染着色器 (`profile=fast`, 禁用 deband/dither/高阶缩放)，解决 4K/高帧率丢帧与卡顿
 /// 5. 纯 C 原生 OpenSL ES 音频驱动 (`ao=opensles`)，杜绝 Java AudioTrack CheckJNI 崩溃
@@ -29,16 +29,17 @@ class TvPlayerEngineHelper {
     );
   }
 
-  /// 创建配置了 MediaCodec 直通硬解与嵌入 Surface 的 VideoController
+  /// 创建配置了 MediaCodec 硬解与色彩映射渲染管线的 VideoController
   static VideoController createVideoController(Player player) {
     return VideoController(
       player,
       configuration: VideoControllerConfiguration(
         enableHardwareAcceleration: true,
         hwdec: Platform.isAndroid ? 'mediacodec' : 'auto',
-        // Android TV 大屏端使用 mediacodec_embed 原生 Surface 零拷贝硬解渲染；
+        // Android TV 大屏端使用 gpu (OpenGL ES) 渲染管线，使 libmpv (libplacebo) 的 GPU 着色器生效，
+        // 从而支持全套工业级 HDR -> SDR 色调映射 (Tone-Mapping)，彻底根除 mediacodec_embed 绕过着色器直通 SDR Surface 导致的画面发白褪色；
         // Linux/Windows 等桌面开发与测试环境使用 libmpv，防止 mpv (vo=gpu) 弹出独立宿主窗口
-        vo: Platform.isAndroid ? 'mediacodec_embed' : 'libmpv',
+        vo: Platform.isAndroid ? 'gpu' : 'libmpv',
       ),
     );
   }
@@ -79,7 +80,8 @@ class TvPlayerEngineHelper {
       await platform.setProperty('correct-downscaling', 'no');
       await platform.setProperty('linear-downscaling', 'no');
       await platform.setProperty('sigmoid-upscaling', 'no');
-      await platform.setProperty('hdr-compute-peak', 'no');
+      // 开启自动动态场景峰值计算，保证 HDR 色调映射时画面明暗过渡自适应且不过曝
+      await platform.setProperty('hdr-compute-peak', 'auto');
     } else {
       await platform.setProperty('hwdec', 'auto');
     }
@@ -105,13 +107,15 @@ class TvPlayerEngineHelper {
     await platform.setProperty('audio-pitch-correction', 'no');
     await platform.setProperty('autosync', '30');
 
-    // 6. 原生 HDR 色彩空间提示
-    if (!Platform.isAndroid) {
-      await platform.setProperty('target-colorspace-hint', 'yes');
-      await platform.setProperty('target-trc', 'auto');
-      await platform.setProperty('target-prim', 'auto');
-      await platform.setProperty('tone-mapping', 'auto');
-    }
+    // 6. 全平台 HDR/BT.2020 到 SDR/BT.709 工业级色调映射 (Tone-Mapping)
+    // 在以 8-bit SDR 纹理输出的 Flutter 环境中，明确指定目标色彩空间为 SDR BT.709 / BT.1886，
+    // 强制触发 libmpv (libplacebo) 的 ITU-R BT.2446a / Spline 高保真色调映射算法，
+    // 彻底根除 HDR 视频在 SDR 纹理输出下画面灰蒙蒙、发白褪色的问题
+    await platform.setProperty('target-colorspace-hint', 'no');
+    await platform.setProperty('target-prim', 'bt.709');
+    await platform.setProperty('target-trc', 'bt.1886');
+    await platform.setProperty('tone-mapping', 'bt.2446a');
+    await platform.setProperty('gamut-mapping', 'auto');
 
     // 7. 外挂独立 DASH 音频流配置 (带 Referer 防盗链注册)
     if (audioUrl != null && audioUrl.isNotEmpty) {
