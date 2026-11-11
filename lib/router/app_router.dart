@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/bangumi/presentation/screens/tv_bangumi_player_screen.dart';
 import '../features/bangumi/presentation/screens/tv_bangumi_screen.dart';
+import '../features/channel/presentation/screens/tv_channel_screen.dart';
 import '../features/home/presentation/screens/tv_home_screen.dart';
 import '../features/live/data/models/live_room_item_model.dart';
 import '../features/live/presentation/screens/tv_live_player_screen.dart';
@@ -62,6 +63,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: TvPopularScreen(),
             ),
+          ),
+          GoRoute(
+            path: RoutePaths.channel,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: TvChannelScreen(),
+            ),
+          ),
+          GoRoute(
+            path: RoutePaths.partition,
+            redirect: (context, state) => RoutePaths.channel,
           ),
           GoRoute(
             path: RoutePaths.live,

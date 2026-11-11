@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/theme/tv_theme.dart';
 
 /// TV 页面脚手架容器，保证 Overscan 防切边安全边距
 /// 注意：
@@ -24,30 +23,18 @@ class TvScaffold extends StatelessWidget {
     final size = MediaQuery.of(context).size;
     final bool isCompact = size.height <= 650;
 
-    final double leftPadding = isCompact ? 172.0 : 196.0;
+    final double horizontalPadding = isCompact ? 36.0 : 48.0;
     final responsivePadding = padding ??
         EdgeInsets.fromLTRB(
-          leftPadding,
-          isCompact ? 16.0 : 24.0,
-          isCompact ? 24.0 : 36.0,
+          horizontalPadding,
+          isCompact ? 12.0 : 16.0,
+          horizontalPadding,
           isCompact ? 16.0 : 24.0,
         );
 
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor ?? TvTheme.tvBackground,
-        gradient: backgroundColor == null
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color(0xFF131524),
-                  Color(0xFF0C0D14),
-                  Color(0xFF090A0F),
-                ],
-                stops: [0.0, 0.45, 1.0],
-              )
-            : null,
+        color: backgroundColor ?? Colors.transparent,
       ),
       child: Material(
         color: Colors.transparent,

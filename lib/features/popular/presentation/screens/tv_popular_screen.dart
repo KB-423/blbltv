@@ -1,16 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dpad/dpad.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../../core/theme/tv_theme.dart';
-import '../../../../widgets/tv_scaffold.dart';
+import '../../../../core/utils/back_navigation_debounce.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../widgets/tv_status_view.dart';
-import '../../../home/presentation/widgets/tv_video_card.dart';
+import '../../../home/presentation/providers/recommend_player_state.dart';
 import '../../../main/presentation/providers/nav_rail_focus_provider.dart';
+import '../providers/popular_player_provider.dart';
 import '../providers/popular_provider.dart';
+import '../widgets/tv_popular_rail.dart';
 
-/// TV 全站热门专区屏幕 (全量真实官方接口，零Mock)
+/// TV 全站热门专区全屏视频流屏幕 (与推荐视频流体验统一，零Mock)
+/// 核心架构与交互：
+/// 1. 底层：全屏硬件加速视频流（由 TvMainShell 统一承载 GlobalTvVideoSurface，默认起播首个视频）
+/// 2. 左侧：悬浮热门视频流导轨 (TvPopularRail)，含 TOP 1~3 勋章标识
+/// 3. 沉浸：5秒静止或 OK 触发全屏纯享播放，隐藏列表与顶栏
+/// 4. 切台：纯享模式下按上下键即时换流切台（保持纯享，零遮挡，仅弹出微型 HUD）
+/// 5. 状态：切页离开时通过 pauseAndStopAudio() 冻结快照，切回时 0ms 恢复
 class TvPopularScreen extends ConsumerStatefulWidget {
   const TvPopularScreen({super.key});
 
@@ -19,300 +28,315 @@ class TvPopularScreen extends ConsumerStatefulWidget {
 }
 
 class _TvPopularScreenState extends ConsumerState<TvPopularScreen> {
-  final ScrollController _scrollController = ScrollController();
-  final FocusNode _firstCardFocusNode =
-      FocusNode(debugLabel: 'PopularFirstCardFocus');
-  bool _hasInitialFocused = false;
+  final FocusNode _playerFocusNode =
+      FocusNode(debugLabel: 'PopularScreenPlayerFocus');
+  final FocusNode _railActiveFocusNode =
+      FocusNode(debugLabel: 'PopularScreenRailActiveCardFocus');
+
+  bool _showChannelHUD = false;
+  Timer? _channelHudTimer;
+  PopularPlayerNotifier? _playerNotifier;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _tryInitialFocus();
-    });
-  }
-
-  void _tryInitialFocus() {
-    if (!_hasInitialFocused && mounted) {
-      final videos = ref.read(popularFeedProvider).videos;
-      if (videos.isNotEmpty && _firstCardFocusNode.canRequestFocus) {
-        _hasInitialFocused = true;
-        _firstCardFocusNode.requestFocus();
-      }
-    }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _playerNotifier = ref.read(popularPlayerProvider.notifier);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _firstCardFocusNode.dispose();
+    _channelHudTimer?.cancel();
+    _playerFocusNode.dispose();
+    _railActiveFocusNode.dispose();
+    // 切换离开热门页时保存会话快照并切断播放器音频
+    _playerNotifier?.pauseAndStopAudio();
     super.dispose();
   }
 
-  void _scrollToTop() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
-      );
+  void _triggerChannelHUD() {
+    _channelHudTimer?.cancel();
+    setState(() {
+      _showChannelHUD = true;
+    });
+    _channelHudTimer = Timer(const Duration(milliseconds: 2200), () {
+      if (mounted) {
+        setState(() {
+          _showChannelHUD = false;
+        });
+      }
+    });
+  }
+
+  KeyEventResult _handlePurePlaybackKey(
+    KeyEvent event,
+    PopularPlayerNotifier notifier,
+  ) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+
+    // 上方向键：切换上一个热门视频
+    if (key == LogicalKeyboardKey.arrowUp) {
+      notifier.playPrevious();
+      _triggerChannelHUD();
+      return KeyEventResult.handled;
     }
+
+    // 下方向键：切换下一个热门视频
+    if (key == LogicalKeyboardKey.arrowDown) {
+      notifier.playNext();
+      _triggerChannelHUD();
+      return KeyEventResult.handled;
+    }
+
+    // OK / Select / Enter / 空格：切换播放/暂停
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      notifier.togglePlay();
+      _triggerChannelHUD();
+      return KeyEventResult.handled;
+    }
+
+    // 左右方向键 / 返回键 / Escape：退出纯享模式，唤醒左侧热门列表
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack) {
+      if (BackNavigationDebounce.shouldHandle()) {
+        notifier.exitPurePlayback();
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(popularFeedProvider, (previous, next) {
-      if (!_hasInitialFocused && next.videos.isNotEmpty) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _tryInitialFocus();
-        });
+    final feedState = ref.watch(popularFeedProvider);
+    final playerState = ref.watch(popularPlayerProvider);
+    final notifier = ref.read(popularPlayerProvider.notifier);
+    final navService = ref.read(navRailFocusServiceProvider);
+
+    // 焦点自愈机制
+    ref.listen(popularPlayerProvider, (prev, next) {
+      // 1. 进入纯享模式，焦点锚定到全屏播放器按键节点
+      if (next.isPurePlayback && !next.showControls) {
+        if (prev == null || !prev.isPurePlayback) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _playerFocusNode.canRequestFocus) {
+              _playerFocusNode.requestFocus();
+            }
+          });
+        }
+      }
+      // 2. 退出纯享时，焦点恢复至左侧热门列表当前卡片
+      if (!next.isPurePlayback && !next.showControls) {
+        if (prev != null && prev.isPurePlayback) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _railActiveFocusNode.canRequestFocus) {
+              _railActiveFocusNode.requestFocus();
+            }
+          });
+        }
       }
     });
 
-    final feedState = ref.watch(popularFeedProvider);
-
-    return TvScaffold(
-      header: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '全站热门',
-            style: Theme.of(context).textTheme.headlineMedium,
-          ),
-          DpadRegion(
-            horizontalEdge: DpadEdgeBehavior.stop,
-            verticalEdge: DpadEdgeBehavior.leave,
-            child: Row(
-              children: [
-                DpadFocusable(
-                  onDirection: (direction) {
-                    if (direction == TraversalDirection.left) {
-                      return ref
-                          .read(navRailFocusServiceProvider)
-                          .focusSelected();
-                    }
-                    return false;
-                  },
-                  onSelect: () =>
-                      ref.read(popularFeedProvider.notifier).refresh(),
-                  builder: (context, state, child) {
-                    final isFocused = state.focused;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isFocused
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isFocused ? Colors.white : Colors.white12,
-                          width: 1.2,
-                        ),
-                        boxShadow: isFocused
-                            ? [
-                                BoxShadow(
-                                  color: Colors.white.withValues(alpha: 0.28),
-                                  blurRadius: 14,
-                                  spreadRadius: 1,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          if (feedState.isRefreshing)
-                            const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.black),
-                              ),
-                            )
-                          else
-                            Icon(
-                              Icons.refresh_rounded,
-                              size: 17,
-                              color: isFocused ? Colors.black : Colors.white,
-                            ),
-                          const SizedBox(width: 6),
-                          Text(
-                            feedState.isRefreshing ? '正在刷新...' : '换一批',
-                            style: TextStyle(
-                              color: isFocused ? Colors.black : Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const SizedBox.shrink(),
-                ),
-                const SizedBox(width: 12),
-                DpadFocusable(
-                  onSelect: _scrollToTop,
-                  builder: (context, state, child) {
-                    final isFocused = state.focused;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isFocused
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isFocused ? Colors.white : Colors.white12,
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.vertical_align_top_rounded,
-                            size: 17,
-                            color: isFocused
-                                ? Colors.black
-                                : TvTheme.tvTextSecondary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '顶部',
-                            style: TextStyle(
-                              color: isFocused
-                                  ? Colors.black
-                                  : TvTheme.tvTextSecondary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  child: const SizedBox.shrink(),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      body: _buildBody(feedState),
-    );
-  }
-
-  Widget _buildBody(PopularState feedState) {
     if (feedState.isLoading && feedState.videos.isEmpty) {
-      return const TvLoadingView(message: '正在获取全站热门视频...');
-    }
-
-    if (feedState.error != null && feedState.videos.isEmpty) {
-      return TvErrorView(
-        error: feedState.error!,
-        onRetry: () => ref.read(popularFeedProvider.notifier).refresh(),
+      return const Scaffold(
+        backgroundColor: Colors.transparent,
+        body: TvLoadingView(message: '正在拉取全站热门榜单...'),
       );
     }
 
-    final videos = feedState.videos;
+    if (feedState.error != null && feedState.videos.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: TvErrorView(
+          error: feedState.error!,
+          onRetry: () => ref.read(popularFeedProvider.notifier).refresh(),
+        ),
+      );
+    }
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double width = constraints.maxWidth;
-        const double spacing = 16.0;
+    final isRailVisible = !playerState.isPurePlayback && !playerState.showControls;
+    final canPopToShell =
+        !playerState.isPurePlayback && navService.isNavRailFocused;
 
-        int crossAxisCount = 4;
-        if (width < 900) {
-          crossAxisCount = 2;
-        } else if (width < 1250) {
-          crossAxisCount = 3;
+    return PopScope(
+      canPop: canPopToShell,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        if (!BackNavigationDebounce.shouldHandle()) return;
+
+        // 1. 若处于纯享模式，先退出纯享，恢复左侧列表与顶部栏
+        if (playerState.isPurePlayback) {
+          notifier.exitPurePlayback();
+          return;
         }
 
-        final double totalHorizontalPadding = spacing * (crossAxisCount - 1);
-        final double cardWidth =
-            (width - totalHorizontalPadding) / crossAxisCount;
-        final double coverHeight = cardWidth * 9 / 16;
-        final double textHeight = 74.0;
-        final double cardHeight = coverHeight + textHeight;
-        final double childAspectRatio = cardWidth / cardHeight;
-
-        return NotificationListener<ScrollNotification>(
-          onNotification: (notification) {
-            if (notification is ScrollEndNotification) {
-              if (notification.metrics.extentAfter < 500) {
-                ref.read(popularFeedProvider.notifier).loadMore();
-              }
+        // 2. 若列表可见但焦点在列表，先恢复顶栏全显，再平滑交接回顶部导航栏「热门」Tab
+        if (!navService.isNavRailFocused) {
+          notifier.cancelHoverPlay();
+          ref.read(topBarDisplayModeProvider.notifier).showFull();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              navService.focusSelected();
             }
-            return false;
-          },
-          child: DpadRegion(
-            enter: DpadEnterBehavior.restore,
-            child: GridView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.only(bottom: 40),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                crossAxisSpacing: spacing,
-                mainAxisSpacing: spacing,
-                childAspectRatio: childAspectRatio,
+          });
+          return;
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. 纯享模式上下键即时切台按键监听节点 (零遮罩零延迟)
+            if (playerState.isPurePlayback && !playerState.showControls)
+              Positioned.fill(
+                child: Focus(
+                  focusNode: _playerFocusNode,
+                  autofocus: true,
+                  onKeyEvent: (node, event) =>
+                      _handlePurePlaybackKey(event, notifier),
+                  child: const SizedBox.expand(),
+                ),
               ),
-              itemCount: videos.length +
-                  (feedState.isLoadingMore ? crossAxisCount : 0),
-              itemBuilder: (context, index) {
-                if (index >= videos.length) {
-                  return Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(TvTheme.radiusCard),
+
+            // 2. 上下键切台微型 HUD 指示
+            _buildChannelHUD(playerState, feedState),
+
+            // 3. 左侧悬浮热门列表导轨 (平滑淡入滑出 + 焦点隔离)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              child: AnimatedSlide(
+                offset: isRailVisible ? Offset.zero : const Offset(-1.2, 0),
+                duration: const Duration(milliseconds: 320),
+                curve: Curves.easeOutCubic,
+                child: AnimatedOpacity(
+                  opacity: isRailVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 260),
+                  child: ExcludeFocus(
+                    excluding: !isRailVisible,
+                    child: TvPopularRail(
+                      activeCardFocusNode: _railActiveFocusNode,
                     ),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white38),
-                        ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChannelHUD(
+    RecommendPlayerState playerState,
+    PopularState feedState,
+  ) {
+    final current = playerState.currentVideo ??
+        (feedState.videos.isNotEmpty &&
+                playerState.currentIndex < feedState.videos.length
+            ? feedState.videos[playerState.currentIndex]
+            : null);
+
+    if (current == null) return const SizedBox.shrink();
+
+    final rank = playerState.currentIndex + 1;
+
+    return Positioned(
+      left: 48,
+      bottom: 48,
+      child: AnimatedOpacity(
+        opacity: _showChannelHUD ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.88),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.65),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 榜单名次
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: rank <= 3
+                      ? const Color(0xFFFF6699)
+                      : Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'TOP $rank',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 播放状态图标
+              Icon(
+                playerState.isPlaying
+                    ? Icons.play_arrow_rounded
+                    : Icons.pause_rounded,
+                size: 20,
+                color: Colors.white70,
+              ),
+              const SizedBox(width: 8),
+              // 视频标题与 UP 主
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      current.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  );
-                }
-
-                final video = videos[index];
-                final isFirstCard = index == 0;
-                final isLeftCol = (index % crossAxisCount) == 0;
-                final isLastRow = index >= (videos.length - crossAxisCount);
-
-                return TvVideoCard(
-                  video: video,
-                  autofocus: isFirstCard,
-                  focusNode: isFirstCard ? _firstCardFocusNode : null,
-                  onDirection: (direction) {
-                    if (isLeftCol && direction == TraversalDirection.left) {
-                      return ref
-                          .read(navRailFocusServiceProvider)
-                          .focusSelected();
-                    }
-                    return false;
-                  },
-                  onFocusChange: (focused) {
-                    if (focused && isLastRow) {
-                      ref.read(popularFeedProvider.notifier).loadMore();
-                    }
-                  },
-                  onPlay: () {
-                    context.push('/player/${video.bvid}');
-                  },
-                );
-              },
-            ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${(current.owner?.name.isNotEmpty == true ? current.owner!.name : "UP主")} · ${Formatters.formatCount(current.stat?.view)}播放',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

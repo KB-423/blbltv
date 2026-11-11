@@ -341,10 +341,11 @@ class _TvCategoryBarState extends ConsumerState<TvCategoryBar> {
             ),
             const SizedBox(width: 16),
             _CategoryTabItem(
-              title: '分区',
-              path: '/partition',
-              isSelected: false,
-              onSelect: () => context.go(RoutePaths.search),
+              title: '频道',
+              path: RoutePaths.channel,
+              isSelected: widget.currentPath == RoutePaths.channel ||
+                  widget.currentPath == RoutePaths.partition,
+              onSelect: () => context.go(RoutePaths.channel),
             ),
             const SizedBox(width: 16),
             _CategoryTabItem(

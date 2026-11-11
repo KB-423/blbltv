@@ -38,11 +38,12 @@ class ApiConstants {
   static const String relatedVideos = '/x/web-interface/archive/related';
   static const String upSpaceVideos = '/x/space/wbi/arc/search';
 
-  // 专区端点 (热门、直播、番剧)
+  // 专区端点 (热门、直播、番剧、频道/分区)
   static const String liveList = '$liveBaseUrl/xlive/web-interface/v1/index/getList';
   static const String livePlayInfo = '$liveBaseUrl/xlive/web-room/v2/index/getRoomPlayInfo';
   static const String bangumiSeasonIndex = '/pgc/season/index/result';
   static const String bangumiSeasonInfo = '/pgc/view/web/season';
+  static const String channelRankingRegion = '/x/web-interface/ranking/region';
 
   // 登录与认证 (TV 扫码流)
   static const String qrcodeGenerate =

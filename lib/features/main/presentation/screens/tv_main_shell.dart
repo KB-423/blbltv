@@ -53,7 +53,9 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
   }
 
   Widget _buildBackground(ShellBackgroundState bgState, String currentPath) {
-    final isHome = currentPath == RoutePaths.home || currentPath == RoutePaths.initial;
+    final isVideoStreamTab = currentPath == RoutePaths.home ||
+        currentPath == RoutePaths.initial ||
+        currentPath == RoutePaths.popular;
 
     // 若当前 Tab 显式指定了底图
     if (bgState.type == ShellBackgroundType.image &&
@@ -65,12 +67,12 @@ class _TvMainShellState extends ConsumerState<TvMainShell> {
       );
     }
 
-    // 若在推荐主页或背景模式为 player，挂载全局单例播放内核视窗（含冻结帧过渡）
-    if (isHome || bgState.type == ShellBackgroundType.player) {
+    // 若在推荐主页或热门视频流页，或背景模式显式为 player，挂载全局单例播放内核视窗（含冻结帧过渡）
+    if (isVideoStreamTab || bgState.type == ShellBackgroundType.player) {
       return const GlobalTvVideoSurface();
     }
 
-    // 其他 Tab 默认暗色质感底图
+    // 其他 Tab 默认暗色质感底图 (承载选择卡片)
     return const _DefaultDarkBackground();
   }
 

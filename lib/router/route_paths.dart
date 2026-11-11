@@ -6,6 +6,8 @@ class RoutePaths {
   static const String home = '/home';
   static const String popular = '/popular';
   static const String live = '/live';
+  static const String channel = '/channel';
+  static const String partition = '/partition';
   static const String bangumi = '/bangumi';
   static const String search = '/search';
   static const String user = '/user';
